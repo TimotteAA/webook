@@ -8,14 +8,15 @@ import (
 	"time"
 )
 
+var (
+	ErrUserDuplciateEmail = errors.New("邮箱冲突")
+	ErrUserNotFound       = gorm.ErrRecordNotFound
+)
+
 // 操作User表的entity
 type UserEntity struct {
 	db *gorm.DB
 }
-
-var (
-	ErrUserDuplciateEmail = errors.New("邮箱冲突")
-)
 
 // UserEntity工厂函数
 func NewUserEntity(db *gorm.DB) *UserEntity {
@@ -38,6 +39,14 @@ func (entity *UserEntity) Create(ctx context.Context, u User) error {
 		}
 	}
 	return err
+}
+
+// 根据email查找用户
+func (entity *UserEntity) FindByEmail(ctx context.Context, email string) (User, error) {
+	// 注意此处的User是表结构的Email
+	var u User
+	result := entity.db.WithContext(ctx).Where("email = ?", email).First(&u)
+	return u, result.Error
 }
 
 // user表结构

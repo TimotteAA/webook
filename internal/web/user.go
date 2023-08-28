@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"github.com/dlclark/regexp2"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"webook/internal/domain"
@@ -111,7 +112,46 @@ func (u *UserHandler) Signup(ctx *gin.Context) {
 
 // 登录
 func (u *UserHandler) Login(ctx *gin.Context) {
-	ctx.String(http.StatusOK, "用户登录")
+	// 1. 定义请求体
+	type ReqUserLogin struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	// 2. bind拿结果
+	var reqUserLogin *ReqUserLogin
+
+	// 如果在这里打断点能进来，说明中间件没问题
+	if err := ctx.Bind(&reqUserLogin); err != nil {
+
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	// 3. 调用服务方法，注意传值
+	user, err := u.srv.Login(ctx, domain.User{Email: reqUserLogin.Email, Password: reqUserLogin.Password})
+	if err == service.ErrEmailOrPassWrong {
+		ctx.String(http.StatusOK, "邮箱或者密码错误")
+		return
+	}
+
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	// 设置session
+	session := sessions.Default(ctx)
+	session.Set("userId", user.Id)
+	session.Options(sessions.Options{
+		Secure:   true,
+		HttpOnly: true,
+		// 一分钟过期
+		MaxAge: 600,
+	})
+	session.Save()
+	ctx.String(http.StatusOK, "登录成功")
+	return
 }
 
 // 退出

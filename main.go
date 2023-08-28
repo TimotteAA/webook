@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -12,9 +14,20 @@ import (
 	entity "webook/internal/repository/entity"
 	"webook/internal/service"
 	"webook/internal/web"
+	"webook/internal/web/middleware"
 )
 
 func main() {
+
+	server := initServer()
+
+	db := initDB()
+	userHandler := initUser(db)
+	userHandler.RegisterRoutes(server)
+	server.Run(":8080")
+}
+
+func initServer() *gin.Engine {
 	server := gin.Default()
 
 	// 全局中间件
@@ -45,10 +58,19 @@ func main() {
 		MaxAge: 12 * time.Hour,
 	}))
 
-	db := initDB()
-	userHandler := initUser(db)
-	userHandler.RegisterRoutes(server)
-	server.Run(":8080")
+	// session中间件
+	// 此处表示session存在store中，可以替换成redis
+	store := cookie.NewStore([]byte("secret"))
+	// 用redis存cookie
+	//store := redis.NewStore()
+	// 浏览器cookie的key
+	server.Use(sessions.Sessions("sessions", store))
+
+	// 登录鉴权的middleware
+	middleware.IgnorePaths = []string{"/user/login", "/user/signup"}
+	server.Use(middleware.CheckLogin())
+
+	return server
 }
 
 // 初始化user模块各个内容
