@@ -44,7 +44,7 @@ func initServer() *gin.Engine {
 		//AllowOrigins:     []string{"https://foo.com"},
 		AllowMethods:  []string{"POST"},
 		AllowHeaders:  []string{"Content-Type", "authorization"},
-		ExposeHeaders: []string{"Content-Length"},
+		ExposeHeaders: []string{"Content-Length", "X-Jwt-Token"},
 		// 允许携带cookie
 		AllowCredentials: true,
 		AllowOriginFunc: func(origin string) bool {
@@ -66,9 +66,11 @@ func initServer() *gin.Engine {
 	// 浏览器cookie的key
 	server.Use(sessions.Sessions("sessions", store))
 
-	// 登录鉴权的middleware
-	middleware.IgnorePaths = []string{"/user/login", "/user/signup"}
-	server.Use(middleware.CheckLogin())
+	//// 登录鉴权的middleware
+	//middleware.IgnorePaths = []string{"/user/login", "/user/signup"}
+	//server.Use(middleware.CheckLogin())
+
+	server.Use(middleware.NewLoginJWTMiddlewareBuilder().Ignore("/user/login").Ignore("/user/signup").Build())
 
 	return server
 }
