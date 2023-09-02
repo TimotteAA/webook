@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+# 定义的是Deployment
+kind: Deployment
+metadata:
+  # deployment的name
+  name: webook-mysql
+  labels:
+    app: webook-mysql
+# 定义deployment中的pod
+spec:
+  # 定义1个pod
+  replicas: 1
+  # 通过label selector选择pod
+  selector:
+    # 通过key-value来匹配pod
+    matchLabels:
+      app: webook-mysql
+  # 这里的template才是定义pod
+  template:
+    metadata:
+      # 通常pod的name和labels与上面定义的一样
+      name: webook-mysql
+      labels:
+        app: webook-mysql
+    # pod的具体实现
+    spec:
+      # 告知k8s，我这个pod里到底有哪些镜像
+      containers:
+        - name: webook-mysql
+          image: mysql:8.0
+          # 镜像的一些环境变量
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+          imagePullPolicy: IfNotPresent
+          # 对应到mysql的默认数据挂在目录
+          # 可以通过mysql的配置去修改
+          volumeMounts:
+            # pod里很多具体哪个匹配关系
+            - name: mysql-storage
+              mountPath: /var/lib/mysql
+          ports:
+            # 容器内部端口
+            - containerPort: 3306
+      restartPolicy: Always
+      # 告知k8s，我整个pod有哪些volume，通过pvc确定到底使用哪些pv
+      volumes:
+        - name: mysql-storage
+          persistentVolumeClaim:
+            claimName: my-local-pvc1
+# [.pod ]. <---pvc claimName----> [pvc] <---storageClass---> [pv]

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+# 定义的是Deployment
+kind: Deployment
+metadata:
+  # deployment的name
+  name: webook
+  labels:
+    app: webook
+# 定义deployment中的pod
+spec:
+  # 定义1个pod
+  replicas: 3
+  # 通过label selector选择pod
+  selector:
+    # 通过key-value来匹配pod
+    matchLabels:
+      app: webook
+  # 这里的template才是定义pod
+  template:
+    metadata:
+      # 通常pod的name和labels与上面定义的一样
+      name: webook
+      labels:
+        app: webook
+    # pod的具体实现
+    spec:
+      # 告知k8s，我这个pod里到底有哪些镜像
+      containers:
+        - name: webook
+          image: timotte/webook-live:v0.0.1
+          ports:
+            # gin的单口
+            - containerPort: 8080

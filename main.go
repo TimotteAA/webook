@@ -6,8 +6,10 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"net/http"
 	"strings"
 	"time"
 	"webook/internal/repository"
@@ -19,11 +21,23 @@ import (
 
 func main() {
 
-	server := initServer()
+	//server := initServer()
 
-	db := initDB()
-	userHandler := initUser(db)
-	userHandler.RegisterRoutes(server)
+	//db := initDB()
+	//redisClient := initRedis()
+	//
+	//userHandler := initUser(db)
+	//userHandler.RegisterRoutes(server)
+	//// 限流插件：一分钟之内100个请求
+	//server.Use(ratelimit.NewBuilder(redisClient, time.Minute, 100).Build())
+
+	server := gin.Default()
+	// 先启动服务
+	server.GET("/hello", func(ctx *gin.Context) {
+		ctx.String(http.StatusOK, "你好啊")
+		return
+	})
+
 	server.Run(":8080")
 }
 
@@ -103,4 +117,13 @@ func initDB() *gorm.DB {
 	}
 
 	return db
+}
+
+func initRedis() redis.Cmdable {
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	return redisClient
 }

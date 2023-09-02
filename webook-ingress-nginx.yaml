@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: webook-ingress
+spec:
+  #  老子要用 nginx
+  ingressClassName: nginx
+  rules:
+    #    host 是 live.webook.com 的时候，命中我这条
+    # 本地开发，需要在hosts文件添加 127.0.0.1 到webook.com的映射
+    # C:\Windows\System32\drivers\etc
+    - host: localhost
+      http:
+        paths:
+          #          - 请求路径的前缀是 / 的时候
+          #          - 将流量转发过去后面名为 webook 的Service服务上
+          #          - 端口是 81
+          - backend:
+              service:
+                name: webook
+                port:
+                  number: 81
+            pathType: Prefix
+            path: /

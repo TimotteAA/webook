@@ -1,0 +1,25 @@
+apiVersion: v1
+# 此配置文件定义了k8s集群中的一个volume
+# 定义k8s中有哪些volume
+# 可以将PV理解成某种存储服务的抽象
+kind: PersistentVolume
+# pv元数据：名称
+metadata:
+  name: my-local-pv1
+# 具体说明pv的规格
+spec:
+  # 这里的storageClassNames随便写，pv和pvc通过这个进行匹配
+  storageClassName: suibianaxie
+  # 存储大小
+  capacity:
+    storage: 1Gi
+  accessModes:
+    # ReadOnlyMany：多个pod可以同时使用，只能读
+    # ReadWriteMany：可以被多个pod挂载，随便使用
+    # ReadWriteOnce：只能被一个pod挂载、使用
+    - ReadWriteOnce
+    # - Read
+  hostPath:
+    # 挂载到宿主机上的路径，根据pvc中定义的来访问
+    # kubectl exec
+    path: '/mnt/live'
