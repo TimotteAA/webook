@@ -49,11 +49,38 @@ func (entity *UserEntity) FindByEmail(ctx context.Context, email string) (User, 
 	return u, result.Error
 }
 
+func (entity *UserEntity) FindById(ctx context.Context, userId int64) (User, error) {
+	var u User
+	result := entity.db.WithContext(ctx).Where("id = ?", userId).First(&u)
+	return u, result.Error
+}
+
+// 更新
+func (entity *UserEntity) Update(ctx context.Context, userId int64, nickname string, description string, birthday int64) (User, error) {
+	var user User
+	updateMap := make(map[string]interface{})
+	if nickname != "" {
+		updateMap["Nickname"] = nickname
+	}
+	if description != "" {
+		updateMap["Description"] = description
+	}
+
+	updateMap["Birthday"] = birthday
+
+	result := entity.db.WithContext(ctx).Model(&user).Where("id = ?", userId).Updates(updateMap)
+	return user, result.Error
+}
+
 // user表结构
 type User struct {
 	Id       int64  `gorm:"primaryKey,autoIncrement"`
 	Email    string `gorm:"unique"`
 	Password string
+
+	Nickname    string
+	Birthday    int64
+	Description string `gorm:"size:350"`
 
 	// 为了便于处理时间，时间统一用UTC+0下的时间戳
 	CreateTime int64

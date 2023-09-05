@@ -9,34 +9,35 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"net/http"
 	"strings"
 	"time"
+	"webook/config"
 	"webook/internal/repository"
 	entity "webook/internal/repository/entity"
 	"webook/internal/service"
 	"webook/internal/web"
 	"webook/internal/web/middleware"
+	"webook/pkg/ginx/middlewares/ratelimit"
 )
 
 func main() {
 
-	//server := initServer()
+	server := initServer()
 
-	//db := initDB()
-	//redisClient := initRedis()
-	//
-	//userHandler := initUser(db)
-	//userHandler.RegisterRoutes(server)
-	//// 限流插件：一分钟之内100个请求
-	//server.Use(ratelimit.NewBuilder(redisClient, time.Minute, 100).Build())
+	db := initDB()
+	redisClient := initRedis()
 
-	server := gin.Default()
-	// 先启动服务
-	server.GET("/hello", func(ctx *gin.Context) {
-		ctx.String(http.StatusOK, "你好啊")
-		return
-	})
+	userHandler := initUser(db)
+	userHandler.RegisterRoutes(server)
+	// 限流插件：一分钟之内100个请求
+	server.Use(ratelimit.NewBuilder(redisClient, time.Minute, 100).Build())
+
+	//server := gin.Default()
+	//// 先启动服务
+	//server.GET("/hello", func(ctx *gin.Context) {
+	//	ctx.String(http.StatusOK, "你好啊")
+	//	return
+	//})
 
 	server.Run(":8080")
 }
@@ -50,6 +51,7 @@ func initServer() *gin.Engine {
 	})
 
 	server.Use(func(ctx *gin.Context) {
+		fmt.Println(ctx)
 		fmt.Println("第二个全局中间件")
 	})
 
@@ -57,8 +59,8 @@ func initServer() *gin.Engine {
 	server.Use(cors.New(cors.Config{
 		//AllowOrigins:     []string{"https://foo.com"},
 		AllowMethods:  []string{"POST"},
-		AllowHeaders:  []string{"Content-Type", "authorization"},
-		ExposeHeaders: []string{"Content-Length", "X-Jwt-Token"},
+		AllowHeaders:  []string{"Content-Type", "Authorization"},
+		ExposeHeaders: []string{"Content-Length", "X-Jwt-Token", "expire-time"},
 		// 允许携带cookie
 		AllowCredentials: true,
 		AllowOriginFunc: func(origin string) bool {
@@ -102,8 +104,8 @@ func initUser(db *gorm.DB) *web.UserHandler {
 // 初始化数据库连接
 func initDB() *gorm.DB {
 	// refer https://github.com/go-sql-driver/mysql#dsn-data-source-name for details
-	dsn := "root:root@tcp(127.0.0.1:13306)/webook"
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	//dsn := "root:root@tcp(127.0.0.1:13306)/webook"
+	db, err := gorm.Open(mysql.Open(config.Config.DB.DSN), &gorm.Config{})
 	if err != nil {
 		//	应该打日志
 		// 初始数据库连接失败，server也没必要运行了
@@ -121,9 +123,8 @@ func initDB() *gorm.DB {
 
 func initRedis() redis.Cmdable {
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
+		// name将被自动解析成host
+		Addr: config.Config.Redis.Addr,
 	})
 	return redisClient
 }

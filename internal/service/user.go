@@ -10,6 +10,7 @@ import (
 
 var ErrUserDuplciateEmail = repository.ErrUserDuplciateEmail
 var ErrEmailOrPassWrong = errors.New("邮箱或密码错误")
+var ErrUserNotFound = errors.New("用户不存在")
 
 type UserService struct {
 	repo *repository.UserRepository
@@ -54,4 +55,18 @@ func (us *UserService) Login(ctx context.Context, user domain.User) (domain.User
 	}
 	// 返回结果
 	return u, nil
+}
+
+// 编辑用户
+func (uc *UserService) Edit(ctx context.Context, userId int64, nickname string, description string, birthday int64) (domain.User, error) {
+	//	先查找用户是否存在
+	if _, err := uc.repo.FindById(ctx, userId); err != nil {
+		return domain.User{}, err
+	}
+
+	//	更新用户数据
+	if _, err := uc.repo.Update(ctx, userId, nickname, description, birthday); err != nil {
+		return domain.User{}, err
+	}
+	return uc.repo.Detail(ctx, userId)
 }

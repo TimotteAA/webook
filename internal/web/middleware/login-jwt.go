@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"log"
@@ -75,16 +76,18 @@ func (m *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 		// 距离签发时间过了10s，就刷新
 		if claims.ExpiresAt.Sub(now) < time.Second*50 {
 			// 重新设定过期时间
-			claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Second * 60))
+			claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Minute))
 			// 办法新token
 			tokenStr, err := token.SignedString([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"))
 			if err != nil {
 				// 刷新失败
 				log.Println("jwt刷新失败 ", err)
 			}
+			fmt.Println("签发失败吗 ", err)
 			ctx.Header("x-jwt-token", tokenStr)
 		}
-		// 拿到user信息，供后面的路由使用
+		fmt.Println("jwt中间件 ", claims)
+		// 拿到user信息，供后面的路由使用，注意这里放的是指针，断言应该也是指针
 		ctx.Set("Claims", claims)
 	}
 }

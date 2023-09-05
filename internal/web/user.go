@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
+	"time"
+	"unicode/utf8"
 	"webook/internal/domain"
 	"webook/internal/service"
 )
@@ -170,7 +172,6 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 
 	// 如果在这里打断点能进来，说明中间件没问题
 	if err := ctx.Bind(&reqUserLogin); err != nil {
-
 		ctx.String(http.StatusOK, "系统错误")
 		return
 	}
@@ -187,10 +188,14 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 		return
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &UserJwtClaims{
+	claims := UserJwtClaims{
 		UserId:    user.Id,
 		UserAgent: ctx.Request.UserAgent(),
-	})
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 600)),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 
 	// 签发 xxx.xx.xx的字符串
 	tokenStr, err := token.SignedString([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"))
@@ -202,7 +207,6 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 	}
 	// 把token放到header里去
 	ctx.Writer.Header().Set("x-jwt-token", tokenStr)
-
 	ctx.String(http.StatusOK, "登录成功")
 	return
 }
@@ -214,7 +218,69 @@ func (u *UserHandler) Signout(ctx *gin.Context) {
 
 // 编辑
 func (u *UserHandler) Edit(ctx *gin.Context) {
-	ctx.String(http.StatusOK, "编辑用户")
+	type UserEditRequest struct {
+		Nickname    string `json:"nickname"`
+		Birthday    string `json:"birthday"`
+		Description string `json:"description"`
+	}
+
+	userEditRequest := &UserEditRequest{}
+	fmt.Println("Edit handler")
+	err := ctx.Bind(userEditRequest)
+
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	// 校验各个字段
+	// 可以为空
+	nameLen := utf8.RuneCountInString(userEditRequest.Nickname)
+	if nameLen > 10 || nameLen < 0 {
+		ctx.String(http.StatusBadRequest, "Nickname的长度不能超过10个")
+		return
+	}
+
+	descLen := utf8.RuneCountInString(userEditRequest.Description)
+	if descLen > 300 || descLen < 0 {
+		ctx.String(http.StatusBadRequest, "Nickname的长度不能超过300个")
+		return
+	}
+
+	var birtyTime int64
+	if len(userEditRequest.Birthday) > 0 {
+		t, err := time.Parse("2006-01-02", userEditRequest.Birthday)
+		if err != nil {
+			ctx.String(http.StatusBadRequest, "生日日期格式错误")
+			return
+		}
+		birtyTime = t.UnixMilli()
+	}
+
+	c, exists := ctx.Get("Claims")
+	if !exists {
+		ctx.String(http.StatusUnauthorized, "请重新登录")
+		return
+	}
+	claims, ok := c.(*UserJwtClaims)
+	if !ok {
+		fmt.Println("claims ", ok, claims)
+		ctx.String(http.StatusUnauthorized, "请重新登录")
+		return
+	}
+	// 调用service
+	user, err := u.srv.Edit(ctx, claims.UserId, userEditRequest.Nickname, userEditRequest.Description, birtyTime)
+
+	if err == service.ErrUserNotFound {
+		ctx.String(http.StatusBadRequest, "更新的用户不存在")
+		return
+	}
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	ctx.JSON(http.StatusOK, user)
 }
 
 // 自定义jwt-claims
