@@ -68,5 +68,5 @@ func (uc *UserService) Edit(ctx context.Context, userId int64, nickname string, 
 	if _, err := uc.repo.Update(ctx, userId, nickname, description, birthday); err != nil {
 		return domain.User{}, err
 	}
-	return uc.repo.Detail(ctx, userId)
+	return uc.repo.FindById(ctx, userId)
 }

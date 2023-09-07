@@ -15,6 +15,7 @@ import (
 	"webook/internal/repository"
 	entity "webook/internal/repository/entity"
 	"webook/internal/service"
+	cache2 "webook/internal/service/cache"
 	"webook/internal/web"
 	"webook/internal/web/middleware"
 	"webook/pkg/ginx/middlewares/ratelimit"
@@ -27,7 +28,7 @@ func main() {
 	db := initDB()
 	redisClient := initRedis()
 
-	userHandler := initUser(db)
+	userHandler := initUser(db, redisClient)
 	userHandler.RegisterRoutes(server)
 	// 限流插件：一分钟之内100个请求
 	server.Use(ratelimit.NewBuilder(redisClient, time.Minute, 100).Build())
@@ -92,10 +93,11 @@ func initServer() *gin.Engine {
 }
 
 // 初始化user模块各个内容
-func initUser(db *gorm.DB) *web.UserHandler {
+func initUser(db *gorm.DB, redisClient redis.Cmdable) *web.UserHandler {
 	//	从entity -> repo -> service -> handler
 	e := entity.NewUserEntity(db)
-	repo := repository.NewUserRepository(e)
+	cache := cache2.NewUserCache(redisClient)
+	repo := repository.NewUserRepository(e, cache)
 	srv := service.NewUserService(repo)
 	controller := web.NewUserHandler(srv)
 	return controller

@@ -5,6 +5,7 @@ import (
 	"time"
 	"webook/internal/domain"
 	"webook/internal/repository/entity"
+	"webook/internal/service/cache"
 )
 
 var ErrUserDuplciateEmail = entity.ErrUserDuplciateEmail
@@ -12,10 +13,11 @@ var ErrUserNotFound = entity.ErrUserNotFound
 
 type UserRepository struct {
 	entity *entity.UserEntity
+	cache  *cache.UserCache
 }
 
-func NewUserRepository(entity *entity.UserEntity) *UserRepository {
-	return &UserRepository{entity: entity}
+func NewUserRepository(entity *entity.UserEntity, cache *cache.UserCache) *UserRepository {
+	return &UserRepository{entity: entity, cache: cache}
 }
 
 func (repo *UserRepository) Create(ctx context.Context, user domain.User) error {
@@ -38,13 +40,29 @@ func (repo *UserRepository) FindByEmail(ctx context.Context, email string) (doma
 }
 
 func (repo *UserRepository) FindById(ctx context.Context, userId int64) (domain.User, error) {
-	u, err := repo.entity.FindById(ctx, userId)
+	// 先去缓存里面找
+	u, err := repo.cache.Get(ctx, userId)
+	// 用户存在
+	if err == nil {
+		return u, nil
+	}
+	// redis出错、或者没找到，查找数据库
+	// 此处所有的压力都来到数据库，可能数据库会挂壁
+	ue, err := repo.entity.FindById(ctx, userId)
 	if err != nil {
 		return domain.User{}, err
 	}
-	return domain.User{
-		Id: u.Id,
-	}, nil
+	user := domain.User{
+		Id:          ue.Id,
+		Email:       ue.Email,
+		NickName:    ue.Nickname,
+		Description: ue.Description,
+		BirthDay:    time.UnixMilli(ue.Birthday).Format("2006-01-02"),
+	}
+
+	//	写会缓存，忽视err
+	_ = repo.cache.Set(ctx, user)
+	return user, nil
 }
 
 func (repo *UserRepository) Update(ctx context.Context, userId int64, nickname string, description string, birthday int64) (entity.User, error) {

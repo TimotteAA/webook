@@ -43,7 +43,7 @@ func (entity *UserEntity) Create(ctx context.Context, u User) error {
 
 // 根据email查找用户
 func (entity *UserEntity) FindByEmail(ctx context.Context, email string) (User, error) {
-	// 注意此处的User是表结构的Email
+	// 注意此处的User是表结构的User
 	var u User
 	result := entity.db.WithContext(ctx).Where("email = ?", email).First(&u)
 	return u, result.Error
