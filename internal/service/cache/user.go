@@ -31,7 +31,7 @@ func NewUserCache(client redis.Cmdable) *UserCache {
 
 // 定义key的格式
 func (cache *UserCache) key(id int64) string {
-	return fmt.Sprintf("user.info.%d", id)
+	return fmt.Sprintf("user.info.%v", id)
 }
 
 func (cache *UserCache) Set(ctx context.Context, u domain.User) error {
@@ -40,11 +40,14 @@ func (cache *UserCache) Set(ctx context.Context, u domain.User) error {
 	if err != nil {
 		return err
 	}
-	return cache.client.Set(ctx, cache.key(u.Id), val, cache.expirationTime).Err()
+	key := cache.key(u.Id)
+	fmt.Println("set ", key, u)
+	return cache.client.Set(ctx, key, val, cache.expirationTime).Err()
 }
 
 func (cache *UserCache) Get(ctx context.Context, id int64) (domain.User, error) {
 	key := cache.key(id)
+	fmt.Println("Get ", key)
 	result, err := cache.client.Get(ctx, key).Bytes()
 	// 数据不存在，err = redis.Nil
 	// 可能是别的错误

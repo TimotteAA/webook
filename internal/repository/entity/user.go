@@ -69,7 +69,12 @@ func (entity *UserEntity) Update(ctx context.Context, userId int64, nickname str
 	updateMap["Birthday"] = birthday
 
 	result := entity.db.WithContext(ctx).Model(&user).Where("id = ?", userId).Updates(updateMap)
-	return user, result.Error
+	if result.Error != nil {
+		return User{}, result.Error
+	}
+	// 更新完再查一下
+	err := entity.db.WithContext(ctx).First(&user, userId).Error
+	return user, err
 }
 
 // user表结构

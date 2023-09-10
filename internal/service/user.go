@@ -65,8 +65,17 @@ func (uc *UserService) Edit(ctx context.Context, userId int64, nickname string, 
 	}
 
 	//	更新用户数据
-	if _, err := uc.repo.Update(ctx, userId, nickname, description, birthday); err != nil {
+	user, err := uc.repo.Update(ctx, userId, nickname, description, birthday)
+	if err != nil {
 		return domain.User{}, err
 	}
-	return uc.repo.FindById(ctx, userId)
+	return user, nil
+}
+
+func (uc *UserService) FindOne(ctx context.Context, userId int64) (domain.User, error) {
+	user, err := uc.repo.FindById(ctx, userId)
+	if err != nil {
+		return domain.User{}, err
+	}
+	return user, nil
 }

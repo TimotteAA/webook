@@ -107,6 +107,7 @@ func initUser(db *gorm.DB, redisClient redis.Cmdable) *web.UserHandler {
 func initDB() *gorm.DB {
 	// refer https://github.com/go-sql-driver/mysql#dsn-data-source-name for details
 	//dsn := "root:root@tcp(127.0.0.1:13306)/webook"
+	println(config.Config.DB.DSN)
 	db, err := gorm.Open(mysql.Open(config.Config.DB.DSN), &gorm.Config{})
 	if err != nil {
 		//	应该打日志

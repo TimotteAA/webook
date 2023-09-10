@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"time"
 	"webook/internal/domain"
 	"webook/internal/repository/entity"
@@ -42,6 +43,7 @@ func (repo *UserRepository) FindByEmail(ctx context.Context, email string) (doma
 func (repo *UserRepository) FindById(ctx context.Context, userId int64) (domain.User, error) {
 	// 先去缓存里面找
 	u, err := repo.cache.Get(ctx, userId)
+	fmt.Println("缓存中的结果 ", u)
 	// 用户存在
 	if err == nil {
 		return u, nil
@@ -57,7 +59,7 @@ func (repo *UserRepository) FindById(ctx context.Context, userId int64) (domain.
 		Email:       ue.Email,
 		NickName:    ue.Nickname,
 		Description: ue.Description,
-		BirthDay:    time.UnixMilli(ue.Birthday).Format("2006-01-02"),
+		BirthDay:    time.Unix(ue.Birthday, 0).Format("2006-01-02"),
 	}
 
 	//	写会缓存，忽视err
@@ -65,20 +67,20 @@ func (repo *UserRepository) FindById(ctx context.Context, userId int64) (domain.
 	return user, nil
 }
 
-func (repo *UserRepository) Update(ctx context.Context, userId int64, nickname string, description string, birthday int64) (entity.User, error) {
-	return repo.entity.Update(ctx, userId, nickname, description, birthday)
-}
-
-func (repo *UserRepository) Detail(ctx context.Context, userId int64) (domain.User, error) {
-	u, err := repo.entity.FindById(ctx, userId)
+func (repo *UserRepository) Update(ctx context.Context, userId int64, nickname string, description string, birthday int64) (domain.User, error) {
+	ue, err := repo.entity.Update(ctx, userId, nickname, description, birthday)
 	if err != nil {
-		return domain.User{}, err
+		return domain.User{}, nil
 	}
-	return domain.User{
-		Id:          u.Id,
-		Email:       u.Email,
-		NickName:    u.Nickname,
-		Description: u.Description,
-		BirthDay:    time.UnixMilli(u.Birthday).Format("2006-01-02"),
-	}, nil
+	user := domain.User{
+		Id:          ue.Id,
+		Email:       ue.Email,
+		NickName:    ue.Nickname,
+		Description: ue.Description,
+		BirthDay:    time.UnixMilli(ue.Birthday).Format("2006-01-02"),
+	}
+	//	写入缓存
+
+	_ = repo.cache.Set(ctx, user)
+	return user, nil
 }

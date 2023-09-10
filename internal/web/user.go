@@ -46,6 +46,7 @@ func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug.POST("/login", u.LoginJWT)
 	ug.POST("/logout", u.Signout)
 	ug.POST("/edit", u.Edit)
+	ug.POST("/profile", u.Profile)
 
 	//server.POST("/user/login", u.Login)
 	//server.POST("/user/logout", u.Signout)
@@ -264,7 +265,6 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 	}
 	claims, ok := c.(*UserJwtClaims)
 	if !ok {
-		fmt.Println("claims ", ok, claims)
 		ctx.String(http.StatusUnauthorized, "请重新登录")
 		return
 	}
@@ -280,6 +280,30 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 		return
 	}
 
+	ctx.JSON(http.StatusOK, user)
+}
+
+// 详情
+func (u *UserHandler) Profile(ctx *gin.Context) {
+	var claims *UserJwtClaims
+
+	c, exist := ctx.Get("Claims")
+	if !exist {
+		ctx.String(http.StatusUnauthorized, "请重新登录")
+		return
+	}
+	claims, exist = c.(*UserJwtClaims)
+	if !exist {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+	userId := claims.UserId
+
+	user, err := u.srv.FindOne(ctx, userId)
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
 	ctx.JSON(http.StatusOK, user)
 }
 
