@@ -49,11 +49,3 @@ func (s *Service) Send(ctx context.Context, tplId string, args []string, numbers
 	}
 	return nil
 }
-
-func (s *Service) toStringPtrSlice(src []string) []*string {
-	dst := make([]*string, len(src))
-	for _, str := range src {
-		dst = append(dst, &str)
-	}
-	return dst
-}

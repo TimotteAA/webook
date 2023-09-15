@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 	"webook/internal/domain"
+	"webook/internal/repository/cache"
 	"webook/internal/repository/entity"
-	"webook/internal/service/cache"
 )
 
 var ErrUserDuplciateEmail = entity.ErrUserDuplciateEmail
