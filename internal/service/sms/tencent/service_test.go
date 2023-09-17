@@ -22,7 +22,7 @@ func TestSender(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := NewService(c, "1400792075", "慢慢学途公众号")
+	s := NewSmsService(c, "1400792075", "慢慢学途公众号")
 
 	testCases := []struct {
 		name    string

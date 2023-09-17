@@ -13,7 +13,7 @@ if expiration == -1 then
 --     发生了奇怪的事情
     return -2;
 --     540 = 600 - 60，超过了一分钟，或者key不存在
-elseif expiration == -2 or ttl < 540 then
+elseif expiration == -2 or expiration < 540 then
     redis.call("set", key, code)
 --     10分钟有效期
     redis.call("expire", key, 600)

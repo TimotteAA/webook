@@ -15,7 +15,7 @@ type Service struct {
 	signName *string
 }
 
-func NewService(c *sms.Client, appId string, signName string) *Service {
+func NewSmsService(c *sms.Client, appId string, signName string) *Service {
 	return &Service{
 		client:   c,
 		appId:    utils.ToPtr[string](appId),

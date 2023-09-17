@@ -18,9 +18,10 @@ type UserHandler struct {
 	emailReg    *regexp2.Regexp
 	passwordReg *regexp2.Regexp
 	srv         *service.UserService
+	codeService *service.CodeService
 }
 
-func NewUserHandler(srv *service.UserService) *UserHandler {
+func NewUserHandler(srv *service.UserService, codeService *service.CodeService) *UserHandler {
 	// controller入参正则pattern
 	const (
 		emailRegPattern     = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
@@ -33,6 +34,7 @@ func NewUserHandler(srv *service.UserService) *UserHandler {
 		emailReg:    emailReg,
 		passwordReg: passwordReg,
 		srv:         srv,
+		codeService: codeService,
 	}
 	return u
 }
@@ -47,6 +49,7 @@ func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug.POST("/logout", u.Signout)
 	ug.POST("/edit", u.Edit)
 	ug.POST("/profile", u.Profile)
+	ug.POST("/signup/code/send", u.SignUpCode)
 
 	//server.POST("/user/login", u.Login)
 	//server.POST("/user/logout", u.Signout)
@@ -226,7 +229,6 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 	}
 
 	userEditRequest := &UserEditRequest{}
-	fmt.Println("Edit handler")
 	err := ctx.Bind(userEditRequest)
 
 	if err != nil {
@@ -305,6 +307,52 @@ func (u *UserHandler) Profile(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, user)
+}
+
+// 发注册短信
+func (u *UserHandler) SignUpCode(ctx *gin.Context) {
+	type signUpBody struct {
+		Phone string `json:"phone"`
+	}
+
+	var req signUpBody
+	// email校验，暂时省略
+	if err := ctx.Bind(&req); err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+	phone := req.Phone
+
+	err := u.codeService.Send(ctx, "login", phone)
+	if err == service.ErrCodeSendTooMany {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "验证码发送过于频繁",
+		})
+		return
+	}
+	if err == service.ErrUnknownForCode {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{
+		Code: 0,
+		Msg:  "发送成功",
+	})
+	return
 }
 
 // 自定义jwt-claims

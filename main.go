@@ -16,6 +16,7 @@ import (
 	cache2 "webook/internal/repository/cache"
 	entity "webook/internal/repository/entity"
 	"webook/internal/service"
+	"webook/internal/service/sms/tencent"
 	"webook/internal/web"
 	"webook/internal/web/middleware"
 	"webook/pkg/ginx/middlewares/ratelimit"
@@ -87,7 +88,7 @@ func initServer() *gin.Engine {
 	//middleware.IgnorePaths = []string{"/user/login", "/user/signup"}
 	//server.Use(middleware.CheckLogin())
 
-	server.Use(middleware.NewLoginJWTMiddlewareBuilder().Ignore("/user/login").Ignore("/user/signup").Build())
+	server.Use(middleware.NewLoginJWTMiddlewareBuilder().Ignore("/user/login").Ignore("/user/signup").Ignore("/user/signup/code/send").Build())
 
 	return server
 }
@@ -97,9 +98,14 @@ func initUser(db *gorm.DB, redisClient redis.Cmdable) *web.UserHandler {
 	//	从entity -> repo -> service -> handler
 	e := entity.NewUserEntity(db)
 	cache := cache2.NewUserCache(redisClient)
+	codeCache := cache2.NewCodeCache(redisClient)
+	codeRepo := repository.NewCodeRepository(codeCache)
+	memorySmsService := tencent.NewMemoryService(codeRepo)
+	codeService := service.NewCodeService(codeRepo, memorySmsService)
+
 	repo := repository.NewUserRepository(e, cache)
 	srv := service.NewUserService(repo)
-	controller := web.NewUserHandler(srv)
+	controller := web.NewUserHandler(srv, codeService)
 	return controller
 }
 
