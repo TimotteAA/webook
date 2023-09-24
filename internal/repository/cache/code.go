@@ -14,6 +14,13 @@ var (
 	ErrUnknownForCode    = errors.New("验证码系统错误")
 )
 
+type CodeCache interface {
+	Set(ctx context.Context,
+		biz string, phone string, inputCode string) error
+	Verify(ctx context.Context,
+		biz string, phone, inputCode string) (bool, error)
+}
+
 // 编译时，把对应lua脚本的内容放到这个变量
 //
 //go:embed lua/set_code.lua
@@ -22,16 +29,16 @@ var setCodeScript string
 //go:embed lua/verify_code.lua
 var verifyCodeScript string
 
-type CodeCache struct {
+type codeCache struct {
 	//	存手机号的redis client
 	client redis.Cmdable
 }
 
-func NewCodeCache(c redis.Cmdable) *CodeCache {
-	return &CodeCache{client: c}
+func NewCodeCache(c redis.Cmdable) CodeCache {
+	return &codeCache{client: c}
 }
 
-func (cache *CodeCache) Set(ctx context.Context,
+func (cache *codeCache) Set(ctx context.Context,
 	biz string, phone string, inputCode string) error {
 	// 执行lua脚本
 	result, err := cache.client.Eval(ctx, setCodeScript, []string{cache.key(biz, phone)}, inputCode).Int()
@@ -50,7 +57,7 @@ func (cache *CodeCache) Set(ctx context.Context,
 	}
 }
 
-func (cache *CodeCache) Verify(ctx context.Context,
+func (cache *codeCache) Verify(ctx context.Context,
 	biz string, phone, inputCode string) (bool, error) {
 	result, err := cache.client.Eval(ctx, verifyCodeScript, []string{cache.key(biz, phone)}, inputCode).Int()
 	if err != nil {
@@ -69,6 +76,6 @@ func (cache *CodeCache) Verify(ctx context.Context,
 	return false, ErrUnknownForCode
 }
 
-func (cache *CodeCache) key(biz, phone string) string {
+func (cache *codeCache) key(biz, phone string) string {
 	return fmt.Sprintf("phone_login:%s:%s", biz, phone)
 }

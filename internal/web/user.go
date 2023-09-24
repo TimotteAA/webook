@@ -13,15 +13,27 @@ import (
 	"webook/internal/service"
 )
 
-// 定义user模块的所有路由
-type UserHandler struct {
-	emailReg    *regexp2.Regexp
-	passwordReg *regexp2.Regexp
-	srv         *service.UserService
-	codeService *service.CodeService
+type UserHandler interface {
+	RegisterRoutes(server *gin.Engine)
+	Signup(ctx *gin.Context)
+	Login(ctx *gin.Context)
+	LoginJWT(ctx *gin.Context)
+	Signout(ctx *gin.Context)
+	Edit(ctx *gin.Context)
+	Profile(ctx *gin.Context)
+	SignUpCode(ctx *gin.Context)
+	LoginByCode(ctx *gin.Context)
 }
 
-func NewUserHandler(srv *service.UserService, codeService *service.CodeService) *UserHandler {
+// 定义user模块的所有路由
+type userHandler struct {
+	emailReg    *regexp2.Regexp
+	passwordReg *regexp2.Regexp
+	srv         service.UserService
+	codeService service.CodeService
+}
+
+func NewUserHandler(srv service.UserService, codeService service.CodeService) UserHandler {
 	// controller入参正则pattern
 	const (
 		emailRegPattern     = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
@@ -30,7 +42,7 @@ func NewUserHandler(srv *service.UserService, codeService *service.CodeService) 
 
 	emailReg, passwordReg := regexp2.MustCompile(emailRegPattern, regexp2.None), regexp2.MustCompile(passwordRegParttern, regexp2.None)
 
-	u := &UserHandler{
+	u := &userHandler{
 		emailReg:    emailReg,
 		passwordReg: passwordReg,
 		srv:         srv,
@@ -40,7 +52,7 @@ func NewUserHandler(srv *service.UserService, codeService *service.CodeService) 
 }
 
 // 统一注册user的路由
-func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
+func (u *userHandler) RegisterRoutes(server *gin.Engine) {
 	//// 统一前缀
 	ug := server.Group("/user")
 	ug.POST("/signup", u.Signup)
@@ -58,7 +70,7 @@ func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 }
 
 // 注册路由handler
-func (u *UserHandler) Signup(ctx *gin.Context) {
+func (u *userHandler) Signup(ctx *gin.Context) {
 	// 注册请求结构体
 	type SignUpReq struct {
 		// 此处后面的 json:"xxx"，表示从body里的某个字段取数据
@@ -121,7 +133,7 @@ func (u *UserHandler) Signup(ctx *gin.Context) {
 }
 
 // 登录
-func (u *UserHandler) Login(ctx *gin.Context) {
+func (u *userHandler) Login(ctx *gin.Context) {
 	// 1. 定义请求体
 	type ReqUserLogin struct {
 		Email    string `json:"email"`
@@ -165,7 +177,7 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 }
 
 // 登录
-func (u *UserHandler) LoginJWT(ctx *gin.Context) {
+func (u *userHandler) LoginJWT(ctx *gin.Context) {
 	// 1. 定义请求体
 	type ReqUserLogin struct {
 		Email    string `json:"email"`
@@ -217,12 +229,12 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 }
 
 // 退出
-func (u *UserHandler) Signout(ctx *gin.Context) {
+func (u *userHandler) Signout(ctx *gin.Context) {
 	ctx.String(http.StatusOK, "用户退出")
 }
 
 // 编辑
-func (u *UserHandler) Edit(ctx *gin.Context) {
+func (u *userHandler) Edit(ctx *gin.Context) {
 	type UserEditRequest struct {
 		Nickname    string `json:"nickname"`
 		Birthday    string `json:"birthday"`
@@ -287,7 +299,7 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 }
 
 // 详情
-func (u *UserHandler) Profile(ctx *gin.Context) {
+func (u *userHandler) Profile(ctx *gin.Context) {
 	var claims *UserJwtClaims
 
 	c, exist := ctx.Get("Claims")
@@ -311,7 +323,7 @@ func (u *UserHandler) Profile(ctx *gin.Context) {
 }
 
 // 发注册短信
-func (u *UserHandler) SignUpCode(ctx *gin.Context) {
+func (u *userHandler) SignUpCode(ctx *gin.Context) {
 	type signUpBody struct {
 		Phone string `json:"phone"`
 	}
@@ -356,7 +368,7 @@ func (u *UserHandler) SignUpCode(ctx *gin.Context) {
 	return
 }
 
-func (u *UserHandler) LoginByCode(ctx *gin.Context) {
+func (u *userHandler) LoginByCode(ctx *gin.Context) {
 	type userLoginByCode struct {
 		Phone string `json:"phone"`
 		Code  string `json:"code"`

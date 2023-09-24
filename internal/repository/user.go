@@ -9,23 +9,31 @@ import (
 	"webook/internal/repository/entity"
 )
 
+type UserRepository interface {
+	Create(ctx context.Context, user domain.User) error
+	FindByEmail(ctx context.Context, email string) (domain.User, error)
+	FindById(ctx context.Context, userId int64) (domain.User, error)
+	Update(ctx context.Context, userId int64, nickname string, description string, birthday int64) (domain.User, error)
+	FindByPhone(ctx context.Context, phone string) (domain.User, error)
+}
+
 var ErrUserDuplicate = entity.ErrUserDuplciate
 var ErrUserNotFound = entity.ErrUserNotFound
 
-type UserRepository struct {
-	entity *entity.UserEntity
-	cache  *cache.UserCache
+type userRepository struct {
+	entity entity.UserEntity
+	cache  cache.UserCache
 }
 
-func NewUserRepository(entity *entity.UserEntity, cache *cache.UserCache) *UserRepository {
-	return &UserRepository{entity: entity, cache: cache}
+func NewUserRepository(entity entity.UserEntity, cache cache.UserCache) UserRepository {
+	return &userRepository{entity: entity, cache: cache}
 }
 
-func (repo *UserRepository) Create(ctx context.Context, user domain.User) error {
+func (repo *userRepository) Create(ctx context.Context, user domain.User) error {
 	return repo.entity.Create(ctx, repo.domainToEntity(user))
 }
 
-func (repo *UserRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
+func (repo *userRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
 	ue, err := repo.entity.FindByEmail(ctx, email)
 	if err != nil {
 		return domain.User{}, err
@@ -33,7 +41,7 @@ func (repo *UserRepository) FindByEmail(ctx context.Context, email string) (doma
 	return repo.entityToDomain(ue), nil
 }
 
-func (repo *UserRepository) FindById(ctx context.Context, userId int64) (domain.User, error) {
+func (repo *userRepository) FindById(ctx context.Context, userId int64) (domain.User, error) {
 	// 先去缓存里面找
 	u, err := repo.cache.Get(ctx, userId)
 	fmt.Println("缓存中的结果 ", u)
@@ -55,7 +63,7 @@ func (repo *UserRepository) FindById(ctx context.Context, userId int64) (domain.
 	return user, nil
 }
 
-func (repo *UserRepository) Update(ctx context.Context, userId int64, nickname string, description string, birthday int64) (domain.User, error) {
+func (repo *userRepository) Update(ctx context.Context, userId int64, nickname string, description string, birthday int64) (domain.User, error) {
 	ue, err := repo.entity.Update(ctx, userId, nickname, description, birthday)
 	if err != nil {
 		return domain.User{}, nil
@@ -67,7 +75,7 @@ func (repo *UserRepository) Update(ctx context.Context, userId int64, nickname s
 	return user, nil
 }
 
-func (repo *UserRepository) FindByPhone(ctx context.Context, phone string) (domain.User, error) {
+func (repo *userRepository) FindByPhone(ctx context.Context, phone string) (domain.User, error) {
 	ue, err := repo.entity.FindByPhone(ctx, phone)
 	if err != nil {
 		return domain.User{}, err
@@ -75,7 +83,7 @@ func (repo *UserRepository) FindByPhone(ctx context.Context, phone string) (doma
 	return repo.entityToDomain(ue), err
 }
 
-func (repo *UserRepository) entityToDomain(ue entity.User) domain.User {
+func (repo *userRepository) entityToDomain(ue entity.User) domain.User {
 	return domain.User{
 		Id:          ue.Id,
 		Email:       ue.Email.String,
@@ -87,7 +95,7 @@ func (repo *UserRepository) entityToDomain(ue entity.User) domain.User {
 	}
 }
 
-func (repo *UserRepository) domainToEntity(ud domain.User) entity.User {
+func (repo *userRepository) domainToEntity(ud domain.User) entity.User {
 	return entity.User{
 		Id:          ud.Id,
 		Email:       sql.NullString{String: ud.Email, Valid: ud.Email != ""},

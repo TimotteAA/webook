@@ -9,23 +9,31 @@ import (
 	"time"
 )
 
+type UserEntity interface {
+	Create(ctx context.Context, u User) error
+	FindByEmail(ctx context.Context, email string) (User, error)
+	FindById(ctx context.Context, userId int64) (User, error)
+	Update(ctx context.Context, userId int64, nickname string, description string, birthday int64) (User, error)
+	FindByPhone(ctx context.Context, phone string) (User, error)
+}
+
 var (
 	ErrUserDuplciate = errors.New("用户已注册")
 	ErrUserNotFound  = gorm.ErrRecordNotFound
 )
 
 // 操作User表的entity
-type UserEntity struct {
+type userEntity struct {
 	db *gorm.DB
 }
 
 // UserEntity工厂函数
-func NewUserEntity(db *gorm.DB) *UserEntity {
-	return &UserEntity{db: db}
+func NewUserEntity(db *gorm.DB) UserEntity {
+	return &userEntity{db: db}
 }
 
 // 开始定义CRUD方法，不知道返回啥，先返回error
-func (entity *UserEntity) Create(ctx context.Context, u User) error {
+func (entity *userEntity) Create(ctx context.Context, u User) error {
 	// 在此处处理时间，存毫秒
 	now := time.Now().UnixMilli()
 	u.CreateTime = now
@@ -43,21 +51,21 @@ func (entity *UserEntity) Create(ctx context.Context, u User) error {
 }
 
 // 根据email查找用户
-func (entity *UserEntity) FindByEmail(ctx context.Context, email string) (User, error) {
+func (entity *userEntity) FindByEmail(ctx context.Context, email string) (User, error) {
 	// 注意此处的User是表结构的User
 	var u User
 	result := entity.db.WithContext(ctx).Where("email = ?", email).First(&u)
 	return u, result.Error
 }
 
-func (entity *UserEntity) FindById(ctx context.Context, userId int64) (User, error) {
+func (entity *userEntity) FindById(ctx context.Context, userId int64) (User, error) {
 	var u User
 	result := entity.db.WithContext(ctx).Where("id = ?", userId).First(&u)
 	return u, result.Error
 }
 
 // 更新
-func (entity *UserEntity) Update(ctx context.Context, userId int64, nickname string, description string, birthday int64) (User, error) {
+func (entity *userEntity) Update(ctx context.Context, userId int64, nickname string, description string, birthday int64) (User, error) {
 	var user User
 	updateMap := make(map[string]interface{})
 	if nickname != "" {
@@ -78,7 +86,7 @@ func (entity *UserEntity) Update(ctx context.Context, userId int64, nickname str
 	return user, err
 }
 
-func (entity *UserEntity) FindByPhone(ctx context.Context, phone string) (User, error) {
+func (entity *userEntity) FindByPhone(ctx context.Context, phone string) (User, error) {
 	var u User
 	result := entity.db.WithContext(ctx).Where("phone = ?", phone).First(&u)
 	return u, result.Error

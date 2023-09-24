@@ -8,6 +8,12 @@ import (
 	"webook/internal/service/sms"
 )
 
+type CodeService interface {
+	Send(ctx context.Context, biz string, phone string) error
+	Verify(ctx context.Context,
+		biz string, phone string, code string) (bool, error)
+}
+
 var (
 	ErrCodeSendTooMany   = repository.ErrCodeSendTooMany
 	ErrCodeVerifyTooMany = repository.ErrCodeVerifyTooMany
@@ -16,13 +22,13 @@ var (
 
 const loginCodeTplId = "1400792075"
 
-type CodeService struct {
-	repo *repository.CodeRepository
+type codeService struct {
+	repo repository.CodeRepository
 	sms  sms.Service
 }
 
-func NewCodeService(r *repository.CodeRepository, sms sms.Service) *CodeService {
-	return &CodeService{
+func NewCodeService(r repository.CodeRepository, sms sms.Service) CodeService {
+	return &codeService{
 		repo: r,
 		sms:  sms,
 	}
@@ -35,7 +41,7 @@ func NewCodeService(r *repository.CodeRepository, sms sms.Service) *CodeService 
 // 3.key存在。过期时间是否还有9分组（一分钟都没过去），限制发送
 // 4. 发送
 // 由于在redis中存储code，故按照分层，需要cache和repo
-func (c *CodeService) Send(ctx context.Context, biz string, phone string) error {
+func (c *codeService) Send(ctx context.Context, biz string, phone string) error {
 	code := c.generateCode()
 	err := c.repo.Send(ctx, biz, phone, code)
 	if err != nil {
@@ -47,7 +53,7 @@ func (c *CodeService) Send(ctx context.Context, biz string, phone string) error 
 	return err
 }
 
-func (c *CodeService) Verify(ctx context.Context,
+func (c *codeService) Verify(ctx context.Context,
 	biz string, phone string, code string) (bool, error) {
 	ok, err := c.repo.Verify(ctx, biz, phone, code)
 	if err != nil {
@@ -56,7 +62,7 @@ func (c *CodeService) Verify(ctx context.Context,
 	return ok, nil
 }
 
-func (c *CodeService) generateCode() string {
+func (c *codeService) generateCode() string {
 	// 产生0-999999的随机数
 	code := rand.Intn(1000000)
 	// 不足6位，前面补0

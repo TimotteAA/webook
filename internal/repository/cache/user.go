@@ -9,9 +9,14 @@ import (
 	"webook/internal/domain"
 )
 
+type UserCache interface {
+	Set(ctx context.Context, u domain.User) error
+	Get(ctx context.Context, id int64) (domain.User, error)
+}
+
 var ErrKeyNotExist = redis.Nil
 
-type UserCache struct {
+type userCache struct {
 	// 外部传入redis的实例
 	client redis.Cmdable
 	// 过期时间
@@ -22,19 +27,19 @@ type UserCache struct {
 // A 用到了 B，B 一定是接口 => 这个是保证面向接口
 // A 用到了 B，B 一定是 A 的字段 => 规避包变量、包方法，都非常缺乏扩展性
 // A 用到了 B，A 绝对不初始化 B，而是外面注入 => 保持依赖注入(DI, Dependency Injection)和依赖反转(IOC)
-func NewUserCache(client redis.Cmdable) *UserCache {
-	return &UserCache{
+func NewUserCache(client redis.Cmdable) UserCache {
+	return &userCache{
 		client:         client,
 		expirationTime: time.Minute * 15,
 	}
 }
 
 // 定义key的格式
-func (cache *UserCache) key(id int64) string {
+func (cache *userCache) key(id int64) string {
 	return fmt.Sprintf("user.info.%v", id)
 }
 
-func (cache *UserCache) Set(ctx context.Context, u domain.User) error {
+func (cache *userCache) Set(ctx context.Context, u domain.User) error {
 	// 先序列化
 	val, err := json.Marshal(u)
 	if err != nil {
@@ -45,7 +50,7 @@ func (cache *UserCache) Set(ctx context.Context, u domain.User) error {
 	return cache.client.Set(ctx, key, val, cache.expirationTime).Err()
 }
 
-func (cache *UserCache) Get(ctx context.Context, id int64) (domain.User, error) {
+func (cache *userCache) Get(ctx context.Context, id int64) (domain.User, error) {
 	key := cache.key(id)
 	fmt.Println("Get ", key)
 	result, err := cache.client.Get(ctx, key).Bytes()

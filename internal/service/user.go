@@ -8,21 +8,29 @@ import (
 	"webook/internal/repository"
 )
 
+type UserService interface {
+	SignUp(ctx context.Context, user domain.User) error
+	Login(ctx context.Context, user domain.User) (domain.User, error)
+	Edit(ctx context.Context, userId int64, nickname string, description string, birthday int64) (domain.User, error)
+	FindOne(ctx context.Context, userId int64) (domain.User, error)
+	FindOrCreate(ctx context.Context, phone string) (domain.User, error)
+}
+
 var ErrUserDuplicate = repository.ErrUserDuplicate
 var ErrEmailOrPassWrong = errors.New("邮箱或密码错误")
 var ErrUserNotFound = errors.New("用户不存在")
 
-type UserService struct {
-	repo *repository.UserRepository
+type userService struct {
+	repo repository.UserRepository
 }
 
 // UserService工厂函数
-func NewUserService(repo *repository.UserRepository) *UserService {
-	return &UserService{repo: repo}
+func NewUserService(repo repository.UserRepository) UserService {
+	return &userService{repo: repo}
 }
 
 // handler的ctx先一路带下来
-func (us *UserService) SignUp(ctx context.Context, user domain.User) error {
+func (us *userService) SignUp(ctx context.Context, user domain.User) error {
 	// 对密码加密，然后调用repo的insert方法
 
 	// 加密后的密码
@@ -36,7 +44,7 @@ func (us *UserService) SignUp(ctx context.Context, user domain.User) error {
 	return us.repo.Create(ctx, user)
 }
 
-func (us *UserService) Login(ctx context.Context, user domain.User) (domain.User, error) {
+func (us *userService) Login(ctx context.Context, user domain.User) (domain.User, error) {
 	// 先根据Email查找用户
 	u, err := us.repo.FindByEmail(ctx, user.Email)
 	println("err ", err)
@@ -60,7 +68,7 @@ func (us *UserService) Login(ctx context.Context, user domain.User) (domain.User
 }
 
 // 编辑用户
-func (uc *UserService) Edit(ctx context.Context, userId int64, nickname string, description string, birthday int64) (domain.User, error) {
+func (uc *userService) Edit(ctx context.Context, userId int64, nickname string, description string, birthday int64) (domain.User, error) {
 	//	先查找用户是否存在
 	if _, err := uc.repo.FindById(ctx, userId); err != nil {
 		return domain.User{}, err
@@ -74,7 +82,7 @@ func (uc *UserService) Edit(ctx context.Context, userId int64, nickname string, 
 	return user, nil
 }
 
-func (uc *UserService) FindOne(ctx context.Context, userId int64) (domain.User, error) {
+func (uc *userService) FindOne(ctx context.Context, userId int64) (domain.User, error) {
 	user, err := uc.repo.FindById(ctx, userId)
 	if err != nil {
 		return domain.User{}, err
@@ -82,7 +90,7 @@ func (uc *UserService) FindOne(ctx context.Context, userId int64) (domain.User, 
 	return user, nil
 }
 
-func (uc *UserService) FindOrCreate(ctx context.Context, phone string) (domain.User, error) {
+func (uc *userService) FindOrCreate(ctx context.Context, phone string) (domain.User, error) {
 	u, err := uc.repo.FindByPhone(ctx, phone)
 	// 下面确保至少不是用户没找到的error，已经注册过了、或者别的原因
 	if err != repository.ErrUserNotFound {
