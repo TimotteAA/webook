@@ -50,6 +50,7 @@ func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug.POST("/edit", u.Edit)
 	ug.POST("/profile", u.Profile)
 	ug.POST("/signup/code/send", u.SignUpCode)
+	ug.POST("/login/code", u.LoginByCode)
 
 	//server.POST("/user/login", u.Login)
 	//server.POST("/user/logout", u.Signout)
@@ -106,7 +107,7 @@ func (u *UserHandler) Signup(ctx *gin.Context) {
 		Email:    req.Email,
 	})
 
-	if err == service.ErrUserDuplciateEmail {
+	if err == service.ErrUserDuplicate {
 		ctx.String(http.StatusOK, "邮箱重复")
 		return
 	}
@@ -116,7 +117,7 @@ func (u *UserHandler) Signup(ctx *gin.Context) {
 		return
 	}
 
-	ctx.String(http.StatusOK, "用户注册")
+	ctx.JSON(http.StatusOK, Result{Code: 0, Msg: "注册成功"})
 }
 
 // 登录
@@ -211,7 +212,7 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 	}
 	// 把token放到header里去
 	ctx.Writer.Header().Set("x-jwt-token", tokenStr)
-	ctx.String(http.StatusOK, "登录成功")
+	ctx.JSON(http.StatusOK, Result{Code: 0, Msg: "登录成功"})
 	return
 }
 
@@ -352,6 +353,84 @@ func (u *UserHandler) SignUpCode(ctx *gin.Context) {
 		Code: 0,
 		Msg:  "发送成功",
 	})
+	return
+}
+
+func (u *UserHandler) LoginByCode(ctx *gin.Context) {
+	type userLoginByCode struct {
+		Phone string `json:"phone"`
+		Code  string `json:"code"`
+	}
+
+	var req userLoginByCode
+	if err := ctx.Bind(&req); err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+	// 可能还需要校验手机号的格式
+
+	// 校验手机验证码
+	ok, err := u.codeService.Verify(ctx, "login", req.Phone, req.Code)
+	switch err {
+	case nil:
+		{
+
+		}
+	}
+	if err == service.ErrUnknownForCode {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "验证码验证次数过多，请重新发送",
+		})
+		return
+	}
+	fmt.Println(err)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+	if !ok {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "验证码错误，验证失败",
+		})
+		return
+	}
+	user, err := u.srv.FindOrCreate(ctx, req.Phone)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+	// 办法token
+	claims := UserJwtClaims{
+		UserId:    user.Id,
+		UserAgent: ctx.Request.UserAgent(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 600)),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
+
+	// 签发 xxx.xx.xx的字符串
+	tokenStr, err := token.SignedString([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"))
+
+	// 签发失败
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+	// 把token放到header里去
+	ctx.Writer.Header().Set("x-jwt-token", tokenStr)
+	ctx.JSON(http.StatusOK, Result{Code: 0, Msg: "登陆成功"})
 	return
 }
 

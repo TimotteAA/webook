@@ -7,5 +7,6 @@ type User struct {
 	Password    string `json:"-"`
 	Description string `json:"description,omitempty"`
 	NickName    string `json:"nickname,omitempty"`
-	BirthDay    string `json:"birthday,omitempty"`
+	BirthDay    int64  `json:"birthday,omitempty"`
+	Phone       string `json:"phone"`
 }

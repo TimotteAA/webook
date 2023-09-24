@@ -2,14 +2,14 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"time"
 	"webook/internal/domain"
 	"webook/internal/repository/cache"
 	"webook/internal/repository/entity"
 )
 
-var ErrUserDuplciateEmail = entity.ErrUserDuplciateEmail
+var ErrUserDuplicate = entity.ErrUserDuplciate
 var ErrUserNotFound = entity.ErrUserNotFound
 
 type UserRepository struct {
@@ -22,22 +22,15 @@ func NewUserRepository(entity *entity.UserEntity, cache *cache.UserCache) *UserR
 }
 
 func (repo *UserRepository) Create(ctx context.Context, user domain.User) error {
-	return repo.entity.Create(ctx, entity.User{
-		Email:    user.Email,
-		Password: user.Password,
-	})
+	return repo.entity.Create(ctx, repo.domainToEntity(user))
 }
 
 func (repo *UserRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
-	u, err := repo.entity.FindByEmail(ctx, email)
+	ue, err := repo.entity.FindByEmail(ctx, email)
 	if err != nil {
 		return domain.User{}, err
 	}
-	return domain.User{
-		Id:       u.Id,
-		Email:    u.Email,
-		Password: u.Password,
-	}, nil
+	return repo.entityToDomain(ue), nil
 }
 
 func (repo *UserRepository) FindById(ctx context.Context, userId int64) (domain.User, error) {
@@ -54,13 +47,8 @@ func (repo *UserRepository) FindById(ctx context.Context, userId int64) (domain.
 	if err != nil {
 		return domain.User{}, err
 	}
-	user := domain.User{
-		Id:          ue.Id,
-		Email:       ue.Email,
-		NickName:    ue.Nickname,
-		Description: ue.Description,
-		BirthDay:    time.Unix(ue.Birthday, 0).Format("2006-01-02"),
-	}
+
+	user := repo.entityToDomain(ue)
 
 	//	写会缓存，忽视err
 	_ = repo.cache.Set(ctx, user)
@@ -72,15 +60,41 @@ func (repo *UserRepository) Update(ctx context.Context, userId int64, nickname s
 	if err != nil {
 		return domain.User{}, nil
 	}
-	user := domain.User{
-		Id:          ue.Id,
-		Email:       ue.Email,
-		NickName:    ue.Nickname,
-		Description: ue.Description,
-		BirthDay:    time.UnixMilli(ue.Birthday).Format("2006-01-02"),
-	}
+	user := repo.entityToDomain(ue)
 	//	写入缓存
 
 	_ = repo.cache.Set(ctx, user)
 	return user, nil
+}
+
+func (repo *UserRepository) FindByPhone(ctx context.Context, phone string) (domain.User, error) {
+	ue, err := repo.entity.FindByPhone(ctx, phone)
+	if err != nil {
+		return domain.User{}, err
+	}
+	return repo.entityToDomain(ue), err
+}
+
+func (repo *UserRepository) entityToDomain(ue entity.User) domain.User {
+	return domain.User{
+		Id:          ue.Id,
+		Email:       ue.Email.String,
+		NickName:    ue.Nickname,
+		Description: ue.Description,
+		BirthDay:    ue.Birthday,
+		Phone:       ue.Phone.String,
+		Password:    ue.Password,
+	}
+}
+
+func (repo *UserRepository) domainToEntity(ud domain.User) entity.User {
+	return entity.User{
+		Id:          ud.Id,
+		Email:       sql.NullString{String: ud.Email, Valid: ud.Email != ""},
+		Phone:       sql.NullString{String: ud.Phone, Valid: ud.Phone != ""},
+		Nickname:    ud.NickName,
+		Description: ud.Description,
+		Birthday:    ud.BirthDay,
+		Password:    ud.Password,
+	}
 }

@@ -2,6 +2,7 @@ package entity
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
@@ -9,8 +10,8 @@ import (
 )
 
 var (
-	ErrUserDuplciateEmail = errors.New("邮箱冲突")
-	ErrUserNotFound       = gorm.ErrRecordNotFound
+	ErrUserDuplciate = errors.New("用户已注册")
+	ErrUserNotFound  = gorm.ErrRecordNotFound
 )
 
 // 操作User表的entity
@@ -35,7 +36,7 @@ func (entity *UserEntity) Create(ctx context.Context, u User) error {
 		const uniqueConflictErrNum uint16 = 1062
 		if mySqlErr.Number == uniqueConflictErrNum {
 			// 唯一索引异常
-			return ErrUserDuplciateEmail
+			return ErrUserDuplciate
 		}
 	}
 	return err
@@ -77,15 +78,25 @@ func (entity *UserEntity) Update(ctx context.Context, userId int64, nickname str
 	return user, err
 }
 
+func (entity *UserEntity) FindByPhone(ctx context.Context, phone string) (User, error) {
+	var u User
+	result := entity.db.WithContext(ctx).Where("phone = ?", phone).First(&u)
+	return u, result.Error
+}
+
 // user表结构
 type User struct {
-	Id       int64  `gorm:"primaryKey,autoIncrement"`
-	Email    string `gorm:"unique"`
+	Id int64 `gorm:"primaryKey,autoIncrement"`
+	// NullString的scan方法从数据库中读取的值，转换成go中的值;
+	Email    sql.NullString `gorm:"unique"`
 	Password string
 
 	Nickname    string
 	Birthday    int64
 	Description string `gorm:"size:350"`
+
+	// 手机号
+	Phone sql.NullString `gorm:"unique"`
 
 	// 为了便于处理时间，时间统一用UTC+0下的时间戳
 	CreateTime int64

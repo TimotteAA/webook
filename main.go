@@ -88,7 +88,7 @@ func initServer() *gin.Engine {
 	//middleware.IgnorePaths = []string{"/user/login", "/user/signup"}
 	//server.Use(middleware.CheckLogin())
 
-	server.Use(middleware.NewLoginJWTMiddlewareBuilder().Ignore("/user/login").Ignore("/user/signup").Ignore("/user/signup/code/send").Build())
+	server.Use(middleware.NewLoginJWTMiddlewareBuilder().Ignore("/user/login").Ignore("/user/signup").Ignore("/user/signup/code/send").Ignore("/user/login/code").Build())
 
 	return server
 }
