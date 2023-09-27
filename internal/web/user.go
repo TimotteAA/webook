@@ -2,15 +2,16 @@ package web
 
 import (
 	"fmt"
-	"github.com/dlclark/regexp2"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"time"
 	"unicode/utf8"
 	"webook/internal/domain"
 	"webook/internal/service"
+
+	"github.com/dlclark/regexp2"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type UserHandler interface {
@@ -82,34 +83,34 @@ func (u *userHandler) Signup(ctx *gin.Context) {
 	// 根据content-type序列化body数据
 	var req *SignUpReq
 	// 注意穿的是值，而不是指针
+	// bind出错，gin直接返回
 	if err := ctx.Bind(&req); err != nil {
-		ctx.String(http.StatusBadRequest, "请求参数错误")
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "Bind data error"})
 		return
 	}
-	fmt.Println("请求入参 ", req)
 
 	isValid, err := u.emailReg.MatchString(req.Email)
 	if err != nil {
-		ctx.String(http.StatusOK, "系统错误")
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
 		return
 	}
 	if !isValid {
-		ctx.String(http.StatusOK, "邮箱格式不正确")
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "邮箱格式不正确"})
 		return
 	}
 
 	isValid, err = u.passwordReg.MatchString(req.Password)
 	if err != nil {
-		ctx.String(http.StatusOK, "系统错误")
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
 		return
 	}
 	if !isValid {
-		ctx.String(http.StatusOK, "密码必须大于8位，包含数字、特殊字符")
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "密码必须大于8位，包含数字、特殊字符"})
 		return
 	}
 
 	if req.Repassword != req.Password {
-		ctx.String(http.StatusBadRequest, "密码与确认密码不一致！")
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "密码与确认密码不一致！"})
 		return
 	}
 
@@ -120,12 +121,12 @@ func (u *userHandler) Signup(ctx *gin.Context) {
 	})
 
 	if err == service.ErrUserDuplicate {
-		ctx.String(http.StatusOK, "邮箱重复")
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "邮箱已被注册"})
 		return
 	}
 
 	if err != nil {
-		ctx.String(http.StatusOK, "系统错误")
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
 		return
 	}
 
