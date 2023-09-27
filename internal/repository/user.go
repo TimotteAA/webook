@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"webook/internal/domain"
 	"webook/internal/repository/cache"
 	"webook/internal/repository/entity"
@@ -44,7 +43,6 @@ func (repo *userRepository) FindByEmail(ctx context.Context, email string) (doma
 func (repo *userRepository) FindById(ctx context.Context, userId int64) (domain.User, error) {
 	// 先去缓存里面找
 	u, err := repo.cache.Get(ctx, userId)
-	fmt.Println("缓存中的结果 ", u)
 	// 用户存在
 	if err == nil {
 		return u, nil
@@ -92,6 +90,7 @@ func (repo *userRepository) entityToDomain(ue entity.User) domain.User {
 		BirthDay:    ue.Birthday,
 		Phone:       ue.Phone.String,
 		Password:    ue.Password,
+		CreatetAt: ue.CreateTime,
 	}
 }
 
@@ -104,5 +103,6 @@ func (repo *userRepository) domainToEntity(ud domain.User) entity.User {
 		Description: ud.Description,
 		Birthday:    ud.BirthDay,
 		Password:    ud.Password,
+		CreateTime: ud.CreatetAt,
 	}
 }

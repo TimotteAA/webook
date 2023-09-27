@@ -9,4 +9,5 @@ type User struct {
 	NickName    string `json:"nickname,omitempty"`
 	BirthDay    int64  `json:"birthday,omitempty"`
 	Phone       string `json:"phone"`
+	CreatetAt  int64 `json:"createdAt"`
 }

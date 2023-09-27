@@ -3,9 +3,10 @@ package service
 import (
 	"context"
 	"errors"
-	"golang.org/x/crypto/bcrypt"
 	"webook/internal/domain"
 	"webook/internal/repository"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService interface {
@@ -47,7 +48,6 @@ func (us *userService) SignUp(ctx context.Context, user domain.User) error {
 func (us *userService) Login(ctx context.Context, user domain.User) (domain.User, error) {
 	// 先根据Email查找用户
 	u, err := us.repo.FindByEmail(ctx, user.Email)
-	println("err ", err)
 
 	// 用户没找到
 	if err == repository.ErrUserNotFound {
@@ -58,7 +58,7 @@ func (us *userService) Login(ctx context.Context, user domain.User) (domain.User
 		return domain.User{}, err
 	}
 
-	//	比较密码
+	//	比较密码，不太好测
 	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(user.Password))
 	if err != nil {
 		return domain.User{}, ErrEmailOrPassWrong
