@@ -9,7 +9,6 @@ import (
 	"webook/internal/service"
 
 	"github.com/dlclark/regexp2"
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -17,7 +16,6 @@ import (
 type UserHandler interface {
 	RegisterRoutes(server *gin.Engine)
 	Signup(ctx *gin.Context)
-	Login(ctx *gin.Context)
 	LoginJWT(ctx *gin.Context)
 	Signout(ctx *gin.Context)
 	Edit(ctx *gin.Context)
@@ -134,50 +132,6 @@ func (u *userHandler) Signup(ctx *gin.Context) {
 }
 
 // 登录
-func (u *userHandler) Login(ctx *gin.Context) {
-	// 1. 定义请求体
-	type ReqUserLogin struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-
-	// 2. bind拿结果
-	var reqUserLogin *ReqUserLogin
-
-	// 如果在这里打断点能进来，说明中间件没问题
-	if err := ctx.Bind(&reqUserLogin); err != nil {
-
-		ctx.String(http.StatusOK, "系统错误")
-		return
-	}
-
-	// 3. 调用服务方法，注意传值
-	user, err := u.srv.Login(ctx, domain.User{Email: reqUserLogin.Email, Password: reqUserLogin.Password})
-	if err == service.ErrEmailOrPassWrong {
-		ctx.String(http.StatusOK, "邮箱或者密码错误")
-		return
-	}
-
-	if err != nil {
-		ctx.String(http.StatusOK, "系统错误")
-		return
-	}
-
-	// 设置session
-	session := sessions.Default(ctx)
-	session.Set("userId", user.Id)
-	session.Options(sessions.Options{
-		Secure:   true,
-		HttpOnly: true,
-		// 一分钟过期
-		MaxAge: 600,
-	})
-	session.Save()
-	ctx.String(http.StatusOK, "登录成功")
-	return
-}
-
-// 登录
 func (u *userHandler) LoginJWT(ctx *gin.Context) {
 	// 1. 定义请求体
 	type ReqUserLogin struct {
@@ -190,19 +144,19 @@ func (u *userHandler) LoginJWT(ctx *gin.Context) {
 
 	// 如果在这里打断点能进来，说明中间件没问题
 	if err := ctx.Bind(&reqUserLogin); err != nil {
-		ctx.String(http.StatusOK, "系统错误")
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
 		return
 	}
 
 	// 3. 调用服务方法，注意传值
 	user, err := u.srv.Login(ctx, domain.User{Email: reqUserLogin.Email, Password: reqUserLogin.Password})
 	if err == service.ErrEmailOrPassWrong {
-		ctx.String(http.StatusOK, "邮箱或者密码错误")
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "邮箱或者密码错误"})
 		return
 	}
 
 	if err != nil {
-		ctx.String(http.StatusOK, "系统错误")
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
 		return
 	}
 
@@ -387,12 +341,7 @@ func (u *userHandler) LoginByCode(ctx *gin.Context) {
 
 	// 校验手机验证码
 	ok, err := u.codeService.Verify(ctx, "login", req.Phone, req.Code)
-	switch err {
-	case nil:
-		{
 
-		}
-	}
 	if err == service.ErrUnknownForCode {
 		ctx.JSON(http.StatusOK, Result{
 			Code: 4,
