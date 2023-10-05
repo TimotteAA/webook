@@ -46,7 +46,6 @@ func (cache *userCache) Set(ctx context.Context, u domain.User) error {
 		return err
 	}
 	key := cache.key(u.Id)
-	fmt.Println("set ", key, u)
 	return cache.client.Set(ctx, key, val, cache.expirationTime).Err()
 }
 

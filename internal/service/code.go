@@ -66,5 +66,5 @@ func (c *codeService) generateCode() string {
 	// 产生0-999999的随机数
 	code := rand.Intn(1000000)
 	// 不足6位，前面补0
-	return fmt.Sprintf("%6d", code)
+	return fmt.Sprintf("%06d", code)
 }

@@ -4,6 +4,7 @@ go 1.21.0
 
 require (
 	github.com/TimotteAA/gokit v0.0.1
+	github.com/allegro/bigcache/v3 v3.1.0
 	github.com/dlclark/regexp2 v1.10.0
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-contrib/sessions v0.0.5
@@ -13,11 +14,18 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/google/wire v0.5.0
 	github.com/redis/go-redis/v9 v9.1.0
+	github.com/stretchr/testify v1.8.3
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.744
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/sms v1.0.744
 	golang.org/x/crypto v0.9.0
 	gorm.io/driver/mysql v1.5.1
 	gorm.io/gorm v1.25.4
+)
+
+require (
+	github.com/DATA-DOG/go-sqlmock v1.5.0
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 )
 
 require (

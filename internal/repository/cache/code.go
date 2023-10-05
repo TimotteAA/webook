@@ -60,6 +60,7 @@ func (cache *codeCache) Set(ctx context.Context,
 func (cache *codeCache) Verify(ctx context.Context,
 	biz string, phone, inputCode string) (bool, error) {
 	result, err := cache.client.Eval(ctx, verifyCodeScript, []string{cache.key(biz, phone)}, inputCode).Int()
+
 	if err != nil {
 		return false, err
 	}
@@ -77,5 +78,5 @@ func (cache *codeCache) Verify(ctx context.Context,
 }
 
 func (cache *codeCache) key(biz, phone string) string {
-	return fmt.Sprintf("phone_login:%s:%s", biz, phone)
+	return fmt.Sprintf("phone_code:%s:%s", biz, phone)
 }
