@@ -6,24 +6,30 @@ import (
 	"github.com/TimotteAA/gokit/utils"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	sms "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/sms/v20210111" // 引入sms"
+	isms "webook/internal/service/sms"
 )
 
+type Service interface {
+	// ctx，模板id，发送参数，手机号
+	Send(ctx context.Context, tplId string, args []string, numbers ...string) error
+}
+
 // A用到了B，由外部传入
-type Service struct {
+type service struct {
 	client   *sms.Client
 	appId    *string
 	signName *string
 }
 
-func NewSmsService(c *sms.Client, appId string, signName string) *Service {
-	return &Service{
+func NewSmsService(c *sms.Client, appId string, signName string) isms.Service {
+	return &service{
 		client:   c,
 		appId:    utils.ToPtr[string](appId),
 		signName: utils.ToPtr(signName),
 	}
 }
 
-func (s *Service) Send(ctx context.Context, tplId string, args []string, numbers ...string) error {
+func (s *service) Send(ctx context.Context, tplId string, args []string, numbers ...string) error {
 	// 按照文档，实例化一个发送请求对象
 	request := sms.NewSendSmsRequest()
 	request.SmsSdkAppId = s.appId
