@@ -26,6 +26,7 @@ func InitMiddlewares(cmd redis.Cmdable) []gin.HandlerFunc {
 			Ignore("/user/signup").
 			Ignore("/user/signup/code/send").
 			Ignore("/user/login/code").
+			Ignore("/user/refresh_token").
 			Build(),
 	}
 }

@@ -14,6 +14,7 @@ type UserRepository interface {
 	FindById(ctx context.Context, userId int64) (domain.User, error)
 	Update(ctx context.Context, userId int64, nickname string, description string, birthday int64) (domain.User, error)
 	FindByPhone(ctx context.Context, phone string) (domain.User, error)
+	FindByWeChat(ctx context.Context, openId string) (domain.User, error)
 }
 
 var ErrUserDuplicate = entity.ErrUserDuplciate
@@ -81,28 +82,40 @@ func (repo *userRepository) FindByPhone(ctx context.Context, phone string) (doma
 	return repo.entityToDomain(ue), err
 }
 
+func (repo *userRepository) FindByWeChat(ctx context.Context, openId string) (domain.User, error) {
+	ue, err := repo.entity.FindByWeChat(ctx, openId)
+	if err != nil {
+		return domain.User{}, err
+	}
+	return repo.entityToDomain(ue), nil
+}
+
 func (repo *userRepository) entityToDomain(ue entity.User) domain.User {
 	return domain.User{
-		Id:          ue.Id,
-		Email:       ue.Email.String,
-		NickName:    ue.Nickname,
-		Description: ue.Description,
-		BirthDay:    ue.Birthday,
-		Phone:       ue.Phone.String,
-		Password:    ue.Password,
-		CreatetAt: ue.CreateTime,
+		Id:            ue.Id,
+		Email:         ue.Email.String,
+		NickName:      ue.Nickname,
+		Description:   ue.Description,
+		BirthDay:      ue.Birthday,
+		Phone:         ue.Phone.String,
+		Password:      ue.Password,
+		CreatetAt:     ue.CreateTime,
+		WeChatOpenId:  ue.WeChatOpenId,
+		WeChatUnionId: ue.WeChatUnionId,
 	}
 }
 
 func (repo *userRepository) domainToEntity(ud domain.User) entity.User {
 	return entity.User{
-		Id:          ud.Id,
-		Email:       sql.NullString{String: ud.Email, Valid: ud.Email != ""},
-		Phone:       sql.NullString{String: ud.Phone, Valid: ud.Phone != ""},
-		Nickname:    ud.NickName,
-		Description: ud.Description,
-		Birthday:    ud.BirthDay,
-		Password:    ud.Password,
-		CreateTime: ud.CreatetAt,
+		Id:            ud.Id,
+		Email:         sql.NullString{String: ud.Email, Valid: ud.Email != ""},
+		Phone:         sql.NullString{String: ud.Phone, Valid: ud.Phone != ""},
+		Nickname:      ud.NickName,
+		Description:   ud.Description,
+		Birthday:      ud.BirthDay,
+		Password:      ud.Password,
+		CreateTime:    ud.CreatetAt,
+		WeChatUnionId: ud.WeChatUnionId,
+		WeChatOpenId:  ud.WeChatOpenId,
 	}
 }

@@ -15,6 +15,7 @@ type UserService interface {
 	Edit(ctx context.Context, userId int64, nickname string, description string, birthday int64) (domain.User, error)
 	FindOne(ctx context.Context, userId int64) (domain.User, error)
 	FindOrCreate(ctx context.Context, phone string) (domain.User, error)
+	FindOrCreateByWeChat(ctx context.Context, userInfo domain.WeChatResult) (domain.User, error)
 }
 
 var ErrUserDuplicate = repository.ErrUserDuplicate
@@ -103,4 +104,19 @@ func (uc *userService) FindOrCreate(ctx context.Context, phone string) (domain.U
 	}
 	// 上面两个error判断兜底了重复注册的err
 	return uc.repo.FindByPhone(ctx, phone)
+}
+
+func (uc *userService) FindOrCreateByWeChat(ctx context.Context, userInfo domain.WeChatResult) (domain.User, error) {
+	// 先查用户是否存在，也就是已经注册
+	u, err := uc.repo.FindByWeChat(ctx, userInfo.OpenId)
+	// openId唯一索引、可能已经注册过了、或者别的问题
+	if err != repository.ErrUserDuplicate {
+		return u, err
+	}
+	// 到这里没注册
+	err = uc.repo.Create(ctx, domain.User{WeChatOpenId: userInfo.OpenId})
+	if err != nil && err != repository.ErrUserDuplicate {
+		return domain.User{}, err
+	}
+	return uc.repo.FindByWeChat(ctx, userInfo.OpenId)
 }

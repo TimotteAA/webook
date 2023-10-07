@@ -1,7 +1,6 @@
 package web
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 	"unicode/utf8"
@@ -13,6 +12,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+var RefreshTokenKey = []byte("moyn8y9abnd7q4zkq2m73yw8tu9j5ixA")
+
 type UserHandler interface {
 	RegisterRoutes(server *gin.Engine)
 	Signup(ctx *gin.Context)
@@ -22,6 +23,7 @@ type UserHandler interface {
 	Profile(ctx *gin.Context)
 	SignUpCode(ctx *gin.Context)
 	LoginByCode(ctx *gin.Context)
+	RefreshToken(ctx *gin.Context)
 }
 
 // 定义user模块的所有路由
@@ -62,7 +64,7 @@ func (u *userHandler) RegisterRoutes(server *gin.Engine) {
 	ug.POST("/profile", u.Profile)
 	ug.POST("/signup/code/send", u.SignUpCode)
 	ug.POST("/login/code", u.LoginByCode)
-
+	ug.POST("/refresh_token", u.RefreshToken)
 	//server.POST("/user/login", u.Login)
 	//server.POST("/user/logout", u.Signout)
 	//server.POST("/user/edit", u.Edit)
@@ -160,27 +162,7 @@ func (u *userHandler) LoginJWT(ctx *gin.Context) {
 		return
 	}
 
-	claims := UserJwtClaims{
-		UserId:    user.Id,
-		UserAgent: ctx.Request.UserAgent(),
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 600)),
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
-
-	// 签发 xxx.xx.xx的字符串
-	tokenStr, err := token.SignedString([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"))
-
-	// 签发失败
-	if err != nil {
-		ctx.String(http.StatusOK, "系统错误")
-		return
-	}
-	// 把token放到header里去
-	ctx.Writer.Header().Set("x-jwt-token", tokenStr)
-	ctx.JSON(http.StatusOK, Result{Code: 0, Msg: "登录成功"})
-	return
+	u.setJWTToken(ctx, user)
 }
 
 // 退出
@@ -349,7 +331,6 @@ func (u *userHandler) LoginByCode(ctx *gin.Context) {
 		})
 		return
 	}
-	fmt.Println(err)
 	if err != nil {
 		ctx.JSON(http.StatusOK, Result{
 			Code: 5,
@@ -372,7 +353,35 @@ func (u *userHandler) LoginByCode(ctx *gin.Context) {
 		})
 		return
 	}
-	// 办法token
+	u.setJWTToken(ctx, user)
+}
+
+func (u *userHandler) RefreshToken(ctx *gin.Context) {
+	// 从header里面拿refresh_token
+	refreshTokenStr := ctx.GetHeader("x-jwt-refresh-token")
+	if refreshTokenStr == "" {
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "刷新token失败"})
+		return
+	}
+	// 保持和jwt中间件中一样的逻辑
+	refreshClaims := UserRefreshJwtClaims{}
+	refreshToken, err := jwt.ParseWithClaims(refreshTokenStr, &refreshClaims, func(token *jwt.Token) (interface{}, error) {
+		return RefreshTokenKey, nil
+	})
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	// 判断payload中的数据，此处认为用火的主键不会为0
+	if refreshToken == nil || !refreshToken.Valid || refreshClaims.UserId == int64(0) {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	// 生成新的token
+	u.setJWTToken(ctx, domain.User{Id: refreshClaims.UserId})
+}
+
+func (u *userHandler) setJWTToken(ctx *gin.Context, user domain.User) {
 	claims := UserJwtClaims{
 		UserId:    user.Id,
 		UserAgent: ctx.Request.UserAgent(),
@@ -391,8 +400,31 @@ func (u *userHandler) LoginByCode(ctx *gin.Context) {
 		return
 	}
 	// 把token放到header里去
+	// 资源请求用这个token
 	ctx.Writer.Header().Set("x-jwt-token", tokenStr)
-	ctx.JSON(http.StatusOK, Result{Code: 0, Msg: "登陆成功"})
+
+	// 再颁发一个refresh-token
+	refreshClaims := UserRefreshJwtClaims{
+		UserId: user.Id,
+		RegisteredClaims: jwt.RegisteredClaims{
+			// 7天有效期
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24 * 7)),
+		},
+	}
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS512, refreshClaims)
+
+	// 签发 xxx.xx.xx的字符串
+	refreshTokenStr, err := refreshToken.SignedString(RefreshTokenKey)
+
+	// 签发失败
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+	// 把token放到header里去
+	ctx.Writer.Header().Set("x-jwt-refresh-token", refreshTokenStr)
+
+	ctx.JSON(http.StatusOK, Result{Code: 0, Msg: "登录成功"})
 	return
 }
 
@@ -404,4 +436,12 @@ type UserJwtClaims struct {
 	UserId int64
 	// 浏览器信息
 	UserAgent string
+}
+
+// refresh-token
+type UserRefreshJwtClaims struct {
+	// 实现Claims接口
+	jwt.RegisteredClaims
+	// 自己定义的数据
+	UserId int64
 }

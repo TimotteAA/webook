@@ -29,6 +29,8 @@ func InitWebServer() *gin.Engine {
 		repository.NewUserRepository,
 		repository.NewCodeRepository,
 
+		// wechat service
+
 		// service
 		//local.NewMemoryService,
 		sms.InitSmsService,

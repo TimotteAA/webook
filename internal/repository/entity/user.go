@@ -15,6 +15,7 @@ type UserEntity interface {
 	FindById(ctx context.Context, userId int64) (User, error)
 	Update(ctx context.Context, userId int64, nickname string, description string, birthday int64) (User, error)
 	FindByPhone(ctx context.Context, phone string) (User, error)
+	FindByWeChat(ctx context.Context, openId string) (User, error)
 }
 
 var (
@@ -92,6 +93,12 @@ func (entity *userEntity) FindByPhone(ctx context.Context, phone string) (User, 
 	return u, result.Error
 }
 
+func (entity *userEntity) FindByWeChat(ctx context.Context, openId string) (User, error) {
+	var u User
+	result := entity.db.WithContext(ctx).Where("openId = ?", openId).First(&u)
+	return u, result.Error
+}
+
 // user表结构
 type User struct {
 	Id int64 `gorm:"primaryKey,autoIncrement"`
@@ -105,6 +112,10 @@ type User struct {
 
 	// 手机号
 	Phone sql.NullString `gorm:"unique"`
+
+	// 微信相关的字段：应用下的用户id
+	WeChatOpenId  string `gorm:"type=varchar(1024),unique"`
+	WeChatUnionId string `gorm:"type=varchar(1024)"`
 
 	// 为了便于处理时间，时间统一用UTC+0下的时间戳
 	CreateTime int64
