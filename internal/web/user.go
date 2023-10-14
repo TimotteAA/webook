@@ -6,19 +6,21 @@ import (
 	"unicode/utf8"
 	"webook/internal/domain"
 	"webook/internal/service"
+	ijwt "webook/internal/web/ijwt"
 
 	"github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var RefreshTokenKey = []byte("moyn8y9abnd7q4zkq2m73yw8tu9j5ixA")
+var ErrUserLogout = ijwt.ErrUserLogout
+var RefreshTokenKey = ijwt.RefreshTokenKey
 
 type UserHandler interface {
 	RegisterRoutes(server *gin.Engine)
 	Signup(ctx *gin.Context)
 	LoginJWT(ctx *gin.Context)
-	Signout(ctx *gin.Context)
+	Logout(ctx *gin.Context)
 	Edit(ctx *gin.Context)
 	Profile(ctx *gin.Context)
 	SignUpCode(ctx *gin.Context)
@@ -32,9 +34,10 @@ type userHandler struct {
 	passwordReg *regexp2.Regexp
 	srv         service.UserService
 	codeService service.CodeService
+	handler     ijwt.Handler
 }
 
-func NewUserHandler(srv service.UserService, codeService service.CodeService) UserHandler {
+func NewUserHandler(srv service.UserService, codeService service.CodeService, handler ijwt.Handler) UserHandler {
 	// controller入参正则pattern
 	const (
 		emailRegPattern     = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
@@ -48,6 +51,7 @@ func NewUserHandler(srv service.UserService, codeService service.CodeService) Us
 		passwordReg: passwordReg,
 		srv:         srv,
 		codeService: codeService,
+		handler:     handler,
 	}
 	return u
 }
@@ -59,7 +63,7 @@ func (u *userHandler) RegisterRoutes(server *gin.Engine) {
 	ug.POST("/signup", u.Signup)
 	//ug.POST("/login", u.Login)
 	ug.POST("/login", u.LoginJWT)
-	ug.POST("/logout", u.Signout)
+	ug.POST("/logout", u.Logout)
 	ug.POST("/edit", u.Edit)
 	ug.POST("/profile", u.Profile)
 	ug.POST("/signup/code/send", u.SignUpCode)
@@ -162,12 +166,24 @@ func (u *userHandler) LoginJWT(ctx *gin.Context) {
 		return
 	}
 
-	u.setJWTToken(ctx, user)
+	err = u.handler.SetLoginToken(ctx, user.Id)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{Code: 0, Msg: "登陆成功"})
+	return
 }
 
 // 退出
-func (u *userHandler) Signout(ctx *gin.Context) {
-	ctx.String(http.StatusOK, "用户退出")
+func (u *userHandler) Logout(ctx *gin.Context) {
+	err := u.handler.ClearToken(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{Code: 0, Msg: "退出成功"})
+	return
 }
 
 // 编辑
@@ -182,7 +198,7 @@ func (u *userHandler) Edit(ctx *gin.Context) {
 	err := ctx.Bind(userEditRequest)
 
 	if err != nil {
-		ctx.String(http.StatusOK, "系统错误")
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
 		return
 	}
 
@@ -190,13 +206,13 @@ func (u *userHandler) Edit(ctx *gin.Context) {
 	// 可以为空
 	nameLen := utf8.RuneCountInString(userEditRequest.Nickname)
 	if nameLen > 10 || nameLen < 0 {
-		ctx.String(http.StatusBadRequest, "Nickname的长度不能超过10个")
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "Nickname的长度不能超过10个"})
 		return
 	}
 
 	descLen := utf8.RuneCountInString(userEditRequest.Description)
 	if descLen > 300 || descLen < 0 {
-		ctx.String(http.StatusBadRequest, "Nickname的长度不能超过300个")
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "Nickname的长度不能超过300个"})
 		return
 	}
 
@@ -204,59 +220,51 @@ func (u *userHandler) Edit(ctx *gin.Context) {
 	if len(userEditRequest.Birthday) > 0 {
 		t, err := time.Parse("2006-01-02", userEditRequest.Birthday)
 		if err != nil {
-			ctx.String(http.StatusBadRequest, "生日日期格式错误")
+			ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "生日日期格式错误"})
 			return
 		}
 		birtyTime = t.UnixMilli()
 	}
 
-	c, exists := ctx.Get("Claims")
-	if !exists {
-		ctx.String(http.StatusUnauthorized, "请重新登录")
-		return
-	}
-	claims, ok := c.(*UserJwtClaims)
+	claims, ok := ctx.MustGet("Claims").(*ijwt.UserJwtClaims)
 	if !ok {
-		ctx.String(http.StatusUnauthorized, "请重新登录")
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
 		return
 	}
 	// 调用service
 	user, err := u.srv.Edit(ctx, claims.UserId, userEditRequest.Nickname, userEditRequest.Description, birtyTime)
 
 	if err == service.ErrUserNotFound {
-		ctx.String(http.StatusBadRequest, "更新的用户不存在")
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "更新的用户不存在"})
 		return
 	}
 	if err != nil {
-		ctx.String(http.StatusOK, "系统错误")
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, user)
+	ctx.JSON(http.StatusOK, Result{Code: 0, Msg: "ok", Data: user})
+	return
 }
 
 // 详情
 func (u *userHandler) Profile(ctx *gin.Context) {
-	var claims *UserJwtClaims
+	var claims *ijwt.UserJwtClaims
 
-	c, exist := ctx.Get("Claims")
-	if !exist {
-		ctx.String(http.StatusUnauthorized, "请重新登录")
-		return
-	}
-	claims, exist = c.(*UserJwtClaims)
-	if !exist {
-		ctx.String(http.StatusOK, "系统错误")
+	claims, ok := ctx.MustGet("Claims").(*ijwt.UserJwtClaims)
+	if !ok {
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
 		return
 	}
 	userId := claims.UserId
 
 	user, err := u.srv.FindOne(ctx, userId)
 	if err != nil {
-		ctx.String(http.StatusOK, "系统错误")
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
 		return
 	}
-	ctx.JSON(http.StatusOK, user)
+	ctx.JSON(http.StatusOK, Result{Code: 0, Msg: "ok", Data: user})
+	return
 }
 
 // 发注册短信
@@ -353,7 +361,19 @@ func (u *userHandler) LoginByCode(ctx *gin.Context) {
 		})
 		return
 	}
-	u.setJWTToken(ctx, user)
+	err = u.handler.SetLoginToken(ctx, user.Id)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{
+		Code: 0,
+		Msg:  "登陆成功",
+	})
+	return
 }
 
 func (u *userHandler) RefreshToken(ctx *gin.Context) {
@@ -364,10 +384,11 @@ func (u *userHandler) RefreshToken(ctx *gin.Context) {
 		return
 	}
 	// 保持和jwt中间件中一样的逻辑
-	refreshClaims := UserRefreshJwtClaims{}
+	refreshClaims := ijwt.UserRefreshJwtClaims{}
 	refreshToken, err := jwt.ParseWithClaims(refreshTokenStr, &refreshClaims, func(token *jwt.Token) (interface{}, error) {
 		return RefreshTokenKey, nil
 	})
+
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -377,71 +398,24 @@ func (u *userHandler) RefreshToken(ctx *gin.Context) {
 		ctx.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
-	// 生成新的token
-	u.setJWTToken(ctx, domain.User{Id: refreshClaims.UserId})
-}
 
-func (u *userHandler) setJWTToken(ctx *gin.Context, user domain.User) {
-	claims := UserJwtClaims{
-		UserId:    user.Id,
-		UserAgent: ctx.Request.UserAgent(),
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 600)),
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
+	// 检查ssid
+	err = u.handler.CheckSession(ctx, refreshClaims.Ssid)
 
-	// 签发 xxx.xx.xx的字符串
-	tokenStr, err := token.SignedString([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"))
-
-	// 签发失败
-	if err != nil {
-		ctx.String(http.StatusOK, "系统错误")
+	if err == ErrUserLogout {
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "用户已经退出"})
 		return
 	}
-	// 把token放到header里去
-	// 资源请求用这个token
-	ctx.Writer.Header().Set("x-jwt-token", tokenStr)
-
-	// 再颁发一个refresh-token
-	refreshClaims := UserRefreshJwtClaims{
-		UserId: user.Id,
-		RegisteredClaims: jwt.RegisteredClaims{
-			// 7天有效期
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24 * 7)),
-		},
-	}
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS512, refreshClaims)
-
-	// 签发 xxx.xx.xx的字符串
-	refreshTokenStr, err := refreshToken.SignedString(RefreshTokenKey)
-
-	// 签发失败
 	if err != nil {
-		ctx.String(http.StatusOK, "系统错误")
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
 		return
 	}
-	// 把token放到header里去
-	ctx.Writer.Header().Set("x-jwt-refresh-token", refreshTokenStr)
 
-	ctx.JSON(http.StatusOK, Result{Code: 0, Msg: "登录成功"})
+	err = u.handler.SetLoginToken(ctx, refreshClaims.UserId)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{Code: 0, Msg: "刷新token成功"})
 	return
-}
-
-// 自定义jwt-claims
-type UserJwtClaims struct {
-	// 实现Claims接口
-	jwt.RegisteredClaims
-	// 自己定义的数据
-	UserId int64
-	// 浏览器信息
-	UserAgent string
-}
-
-// refresh-token
-type UserRefreshJwtClaims struct {
-	// 实现Claims接口
-	jwt.RegisteredClaims
-	// 自己定义的数据
-	UserId int64
 }

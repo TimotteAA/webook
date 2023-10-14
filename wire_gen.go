@@ -13,12 +13,15 @@ import (
 	"webook/internal/repository/entity"
 	"webook/internal/service"
 	"webook/internal/web"
+	"webook/internal/web/ijwt"
 	"webook/ioc"
+	"webook/ioc/oauth2"
 	"webook/ioc/sms"
 )
 
 // Injectors from wire.go:
 
+// 根目录下运行wire
 func InitWebServer() *gin.Engine {
 	db := ioc.InitDB()
 	userEntity := entity.NewUserEntity(db)
@@ -30,8 +33,11 @@ func InitWebServer() *gin.Engine {
 	codeRepository := repository.NewCodeRepository(codeCache)
 	smsService := sms.InitSmsService()
 	codeService := service.NewCodeService(codeRepository, smsService)
-	userHandler := web.NewUserHandler(userService, codeService)
-	v := ioc.InitMiddlewares(cmdable)
-	engine := ioc.InitWebServer(userHandler, v)
+	handler := ijwt.NewRedisHandler(cmdable)
+	userHandler := web.NewUserHandler(userService, codeService, handler)
+	weChatService := oauth2.InitWeChatService()
+	oAuth2WeChatHandler := web.NewOAuth2WeChatHandler(weChatService)
+	v := ioc.InitMiddlewares(cmdable, handler)
+	engine := ioc.InitWebServer(userHandler, oAuth2WeChatHandler, v)
 	return engine
 }

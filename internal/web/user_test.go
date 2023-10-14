@@ -379,7 +379,7 @@ func TestUserHandler_LoginJWT(t *testing.T) {
 			if tc.verifyHeader {
 				jwtHeader := response.Header().Get("x-jwt-token")
 				if strings.TrimSpace(jwtHeader) == "" {
-					t.Errorf("Expected header 'x-jwt-token' to be present")
+					t.Errorf("Expected header 'x-ijwt-token' to be present")
 				}
 			}
 		})

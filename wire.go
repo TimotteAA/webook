@@ -10,12 +10,19 @@ import (
 	"webook/internal/repository/entity"
 	"webook/internal/service"
 	"webook/internal/web"
+	"webook/internal/web/ijwt"
 	"webook/ioc"
+	"webook/ioc/oauth2"
 	"webook/ioc/sms"
 )
 
+// 根目录下运行wire
 func InitWebServer() *gin.Engine {
 	wire.Build(
+
+		// ijwt handler
+		ijwt.NewRedisHandler,
+
 		// db和redis
 		ioc.InitDB,
 		ioc.InitRedis,
@@ -30,6 +37,7 @@ func InitWebServer() *gin.Engine {
 		repository.NewCodeRepository,
 
 		// wechat service
+		oauth2.InitWeChatService,
 
 		// service
 		//local.NewMemoryService,
@@ -39,6 +47,7 @@ func InitWebServer() *gin.Engine {
 
 		// controller
 		web.NewUserHandler,
+		web.NewOAuth2WeChatHandler,
 
 		ioc.InitMiddlewares,
 		ioc.InitWebServer,

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 	"webook/internal/service"
+	"webook/internal/web/ijwt"
 )
 
 var stateJWTKey = []byte("moyn8y9abnd7q4zkq2m73yw8tu9j5ixB")
@@ -81,7 +82,7 @@ func (handler *oAuth2WeChatHandler) Callback(ctx *gin.Context) {
 		return
 	}
 	// 颁发token: todo封装方法
-	claims := UserJwtClaims{
+	claims := ijwt.UserJwtClaims{
 		UserId:    user.Id,
 		UserAgent: ctx.Request.UserAgent(),
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -114,14 +115,14 @@ func (handler *oAuth2WeChatHandler) setStateCookie(ctx *gin.Context, state strin
 		return err
 	}
 	// 放在cookie里，再callback时进行校验
-	ctx.SetCookie("jwt-oauth2-state", tokenStr, 600, "/oauth2/wechat/callback", "", false, true)
+	ctx.SetCookie("ijwt-oauth2-state", tokenStr, 600, "/oauth2/wechat/callback", "", false, true)
 	return nil
 }
 
 func (handler *oAuth2WeChatHandler) verifyStateCookie(ctx *gin.Context) error {
 	// url上的state
 	state := ctx.Query("state")
-	tokenStr, err := ctx.Cookie("jwt-oauth2-state")
+	tokenStr, err := ctx.Cookie("ijwt-oauth2-state")
 	// 拿不到cookie
 	if err != nil || tokenStr == "" {
 		return fmt.Errorf("%w, 无法拿到cookie", err)

@@ -12,7 +12,7 @@ func InitCors() gin.HandlerFunc {
 		//AllowOrigins:     []string{"https://foo.com"},
 		AllowMethods:  []string{"POST"},
 		AllowHeaders:  []string{"Content-Type", "Authorization"},
-		ExposeHeaders: []string{"Content-Length", "X-Jwt-Token", "expire-time", "x-jwt-refresh-toke"},
+		ExposeHeaders: []string{"Content-Length", "X-Jwt-Token", "expire-time", "x-ijwt-refresh-toke"},
 		// 允许携带cookie
 		AllowCredentials: true,
 		AllowOriginFunc: func(origin string) bool {
